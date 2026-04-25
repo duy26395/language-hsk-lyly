@@ -1,0 +1,6 @@
+{
+  "name": "Hán Ngữ Thông Minh",
+  "description": "Ứng dụng hỗ trợ học tiếng trung thông qua phân tích đoạn văn bổ sung từ vựng và tự động tạo đoạn văn từ từ vựng theo cấp độ HSK.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}

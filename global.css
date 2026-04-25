@@ -1,0 +1,342 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import 'shadcn/tailwind.css';
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  /* ── Brand / Student UI ─────────────────────────────────── */
+  --color-brand: var(--brand);
+  --color-brand-hover: var(--brand-hover);
+  --color-brand-disabled: var(--brand-disabled);
+  --color-brand-border: var(--brand-border);
+  --color-brand-subtle: var(--brand-subtle);
+  --color-brand-light: var(--brand-light);
+  /* Page backgrounds */
+  --color-page-bg: var(--page-bg);
+  --color-about-bg: var(--about-bg);
+  /* Student text/heading */
+  --color-student-heading: var(--student-heading);
+  --color-student-text: var(--student-text);
+  --color-student-muted: var(--student-muted);
+  --color-student-sidebar: var(--student-sidebar);
+  --color-student-dark: var(--student-dark);
+  --color-student-neutral-border: var(--student-neutral-border);
+  --color-student-neutral-bg: var(--student-neutral-bg);
+  /* Status: success */
+  --color-success: var(--success);
+  --color-success-bg: var(--success-bg);
+  --color-success-border: var(--success-border);
+  --color-success-subtle: var(--success-subtle);
+  /* Status: warning (amber) */
+  --color-warning: var(--warning);
+  --color-warning-bg: var(--warning-bg);
+  --color-warning-border: var(--warning-border);
+  /* Status: danger */
+  --color-danger: var(--danger);
+  --color-danger-bg: var(--danger-bg);
+  /* Status: pending (orange) */
+  --color-pending: var(--pending);
+  --color-pending-bg: var(--pending-bg);
+  /* ── End Brand / Student UI ─────────────────────────────── */
+  --color-indigo-50: #eef2ff;
+  --color-indigo-800: #3730a3;
+  --color-indigo-900: #312e81;
+  --color-orange-50: #fff7ed;
+  --color-orange-500: #f97316;
+  --color-orange-600: #ea580c;
+  /* Action (interactive blue) */
+  --color-action: var(--action);
+  --color-action-foreground: var(--action-foreground);
+  --color-action-muted: var(--action-muted);
+  --color-action-border: var(--action-border);
+  /* Application status colors */
+  --color-status-reviewing: var(--status-reviewing);
+  --color-status-reviewing-bg: var(--status-reviewing-bg);
+  --color-status-reviewing-border: var(--status-reviewing-border);
+  --color-status-interview: var(--status-interview);
+  --color-status-interview-bg: var(--status-interview-bg);
+  --color-status-offer: var(--status-offer);
+  --color-status-offer-bg: var(--status-offer-bg);
+  --color-status-rejected: var(--status-rejected);
+  --color-status-rejected-bg: var(--status-rejected-bg);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans:
+    ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+    'Segoe UI Symbol', 'Noto Color Emoji';
+  --font-mono: var(--font-geist-mono);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+:root {
+  /* ── Brand / Student UI ─────────────────────────────────── */
+  --brand: #6c63ff;
+  --brand-hover: #5a52e0;
+  --brand-disabled: #d0cfe8;
+  --brand-border: #eeedf5;
+  --brand-subtle: #f5f5fb;
+  --brand-light: #f0eff8;
+  --page-bg: #f4f7fb;
+  --about-bg: #f4f7fa;
+  --student-heading: #1a1a2e;
+  --student-text: #555555;
+  --student-muted: #888888;
+  --student-sidebar: #1a2235;
+  --student-dark: #0a0f1c;
+  --student-neutral-border: #e0e0e0;
+  --student-neutral-bg: #f8f8f8;
+  --success: #1a7a48;
+  --success-bg: #f0fbf5;
+  --success-border: #b7ead0;
+  --success-subtle: #d1f5e0;
+  --warning: #b45309;
+  --warning-bg: #fffbf0;
+  --warning-border: #f9dfb0;
+  --danger: #e53e3e;
+  --danger-bg: #fff0f0;
+  --pending: #f7934c;
+  --pending-bg: #fff3ec;
+  /* ── End Brand / Student UI ─────────────────────────────── */
+  /* Action blue */
+  --action: oklch(0.546 0.245 262.881);
+  --action-foreground: oklch(1 0 0);
+  --action-muted: oklch(0.97 0.013 264.376);
+  --action-border: oklch(0.932 0.032 255.585);
+  /* Status: reviewing (blue) */
+  --status-reviewing: oklch(0.546 0.245 262.881);
+  --status-reviewing-bg: oklch(0.97 0.013 264.376);
+  --status-reviewing-border: oklch(0.932 0.032 255.585);
+  /* Status: interview (violet) */
+  --status-interview: oklch(0.541 0.281 293.009);
+  --status-interview-bg: oklch(0.943 0.029 308.12);
+  /* Status: offer (green) */
+  --status-offer: oklch(0.527 0.154 150.069);
+  --status-offer-bg: oklch(0.962 0.044 156.743);
+  /* Status: rejected (red) */
+  --status-rejected: oklch(0.637 0.237 25.331);
+  --status-rejected-bg: oklch(0.936 0.032 17.717);
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+  --chart-1: oklch(0.809 0.105 251.813);
+  --chart-2: oklch(0.623 0.214 259.815);
+  --chart-3: oklch(0.546 0.245 262.881);
+  --chart-4: oklch(0.488 0.243 264.376);
+  --chart-5: oklch(0.424 0.199 265.638);
+  --radius: 0.625rem;
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
+}
+
+.dark {
+  /* Action blue (dark) */
+  --action: oklch(0.809 0.105 251.813);
+  --action-foreground: oklch(0.145 0 0);
+  --action-muted: oklch(0.282 0.091 267.935);
+  --action-border: oklch(0.35 0.12 265);
+  /* Status: reviewing (dark) */
+  --status-reviewing: oklch(0.809 0.105 251.813);
+  --status-reviewing-bg: oklch(0.282 0.091 267.935);
+  --status-reviewing-border: oklch(0.35 0.12 265);
+  /* Status: interview (dark) */
+  --status-interview: oklch(0.751 0.15 294);
+  --status-interview-bg: oklch(0.258 0.09 302);
+  /* Status: offer (dark) */
+  --status-offer: oklch(0.835 0.1 150);
+  --status-offer-bg: oklch(0.2 0.04 150);
+  /* Status: rejected (dark) */
+  --status-rejected: oklch(0.704 0.191 22.216);
+  --status-rejected-bg: oklch(0.22 0.04 25);
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.922 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.556 0 0);
+  --chart-1: oklch(0.809 0.105 251.813);
+  --chart-2: oklch(0.623 0.214 259.815);
+  --chart-3: oklch(0.546 0.245 262.881);
+  --chart-4: oklch(0.488 0.243 264.376);
+  --chart-5: oklch(0.424 0.199 265.638);
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.556 0 0);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
+}
+
+@layer utilities {
+  .scroll-hidden::-webkit-scrollbar {
+    display: none;
+  }
+  .scroll-hidden {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .app-background {
+    position: fixed;
+    inset: 0;
+    z-index: -10;
+    background-image: url('/src/asset/public/back_ground.jpg');
+    background-size: cover;
+    background-position: center;
+    filter: blur(80px) saturate(1.2);
+    transform: scale(1.1);
+    opacity: 0.6;
+  }
+  .glass-effect {
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+  }
+  .glass-box {
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+  .hero-gradient {
+    background: linear-gradient(135deg, #312e81 0%, #4338ca 50%, #f97316 100%);
+  }
+  .text-gradient {
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-image: linear-gradient(to right, #f97316, #fdba74);
+  }
+  .animate-infinite-scroll {
+    animation: scroll 25s linear infinite;
+  }
+  .mask-gradient {
+    mask-image: linear-gradient(
+      to right,
+      transparent,
+      black 10%,
+      black 90%,
+      transparent
+    );
+    -webkit-mask-image: linear-gradient(
+      to right,
+      transparent,
+      black 10%,
+      black 90%,
+      transparent
+    );
+  }
+}
+
+@keyframes scroll {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes marquee {
+  0% {
+    transform: translateX(100%);
+  }
+  100% {
+    transform: translateX(-100%);
+  }
+}
+
+.animate-marquee {
+  animation: marquee 50s linear infinite;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #e2e8f0;
+  border-radius: 10px;
+}
