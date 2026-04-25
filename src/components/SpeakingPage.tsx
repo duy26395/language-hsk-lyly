@@ -26,6 +26,7 @@ export default function SpeakingPage({ selectedModel, fadeVariants }: SpeakingPa
   const [isRecording, setIsRecording] = useState(false);
   const [loading, setLoading] = useState(false);
   const [hskLevel, setHskLevel] = useState('HSK 3');
+  const [voiceReady, setVoiceReady] = useState(false);
   const [voiceError, setVoiceError] = useState('');
   
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -40,8 +41,16 @@ export default function SpeakingPage({ selectedModel, fadeVariants }: SpeakingPa
   useEffect(() => {
     // Initialize speech recognition
     if (typeof window !== 'undefined') {
+      const isLocalhost = ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
+      if (!window.isSecureContext && !isLocalhost) {
+        setVoiceReady(false);
+        setVoiceError('Voice input needs HTTPS on mobile. Please open the deployed https:// link, not an http:// network URL.');
+        return;
+      }
+
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
       if (!SpeechRecognition) {
+        setVoiceReady(false);
         setVoiceError('Voice input needs a browser that supports Speech Recognition, such as Chrome or Edge.');
         return;
       }
@@ -71,7 +80,14 @@ export default function SpeakingPage({ selectedModel, fadeVariants }: SpeakingPa
       recognition.onend = () => setIsRecording(false);
 
       recognitionRef.current = recognition;
+      setVoiceReady(true);
     }
+
+    return () => {
+      recognitionRef.current?.abort?.();
+      recognitionRef.current = null;
+      setVoiceReady(false);
+    };
   }, []);
 
   const handleSend = async () => {
@@ -94,7 +110,7 @@ export default function SpeakingPage({ selectedModel, fadeVariants }: SpeakingPa
   };
 
   const toggleRecording = () => {
-    if (!recognitionRef.current) {
+    if (!voiceReady || !recognitionRef.current) {
       setVoiceError('Voice input needs Chrome or Edge with microphone permission enabled.');
       return;
     }
@@ -205,7 +221,7 @@ export default function SpeakingPage({ selectedModel, fadeVariants }: SpeakingPa
             <button 
               type="button"
               onClick={toggleRecording}
-              disabled={!recognitionRef.current}
+              disabled={!voiceReady}
               className={`flex h-10 w-10 md:h-14 md:w-14 shrink-0 items-center justify-center rounded-2xl transition-all active:scale-95 shadow-md ${
                 isRecording 
                   ? 'bg-red-500 text-white animate-pulse' 

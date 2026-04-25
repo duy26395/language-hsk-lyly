@@ -168,13 +168,21 @@ export default function App() {
     if (window.speechSynthesis) window.speechSynthesis.cancel();
   }, [activeTab]);
 
+  useEffect(() => {
+    if (localStorage.getItem('voice-mobile-notice-seen') !== 'true') {
+      const timeoutId = window.setTimeout(() => setShowVoiceNotice(true), 350);
+      return () => window.clearTimeout(timeoutId);
+    }
+  }, []);
+
   // Event Handlers
   const handleSetActiveTab = (tab: typeof activeTab) => {
-    if (tab === 'speaking' && localStorage.getItem('voice-mobile-notice-seen') !== 'true') {
-      setShowVoiceNotice(true);
-      return;
-    }
     setActiveTab(tab);
+  };
+
+  const closeVoiceNotice = () => {
+    localStorage.setItem('voice-mobile-notice-seen', 'true');
+    setShowVoiceNotice(false);
   };
 
   const openSpeakingPage = () => {
@@ -323,7 +331,7 @@ export default function App() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            onClick={() => setShowVoiceNotice(false)}
+            onClick={closeVoiceNotice}
           >
             <motion.div
               className="w-full max-w-md overflow-hidden rounded-[1.5rem] border border-white/70 bg-white p-4 shadow-2xl sm:rounded-[2rem] sm:p-6"
@@ -344,7 +352,7 @@ export default function App() {
                 </div>
                 <button
                   type="button"
-                  onClick={() => setShowVoiceNotice(false)}
+                  onClick={closeVoiceNotice}
                   className="rounded-full p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
                   aria-label="Đóng thông báo"
                 >
@@ -370,7 +378,7 @@ export default function App() {
               <div className="mt-5 flex flex-col-reverse gap-2 sm:mt-6 sm:flex-row sm:justify-end">
                 <button
                   type="button"
-                  onClick={() => setShowVoiceNotice(false)}
+                  onClick={closeVoiceNotice}
                   className="rounded-2xl border border-violet-100 px-4 py-3 text-sm font-semibold text-slate-600 transition-colors hover:bg-violet-50 sm:px-5"
                 >
                   Để sau
