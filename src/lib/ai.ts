@@ -17,7 +17,10 @@ export interface QuizQuestion {
   question: string;
   options: string[];
   correctAnswerIndex: number;
+  dialogue?: string;
 }
+
+export type QuizType = 'general' | 'listening';
 
 async function postJson<TResponse>(
   url: string,
@@ -94,6 +97,7 @@ export async function generateQuiz(
   topic: string,
   questionCount: number = 5,
   model: AIModel = 'gemini',
+  quizType: QuizType = 'general',
 ): Promise<QuizQuestion[] | null> {
   try {
     const { result } = await postJson<{ result: QuizQuestion[] | null }>(
@@ -103,6 +107,7 @@ export async function generateQuiz(
         topic,
         questionCount,
         model,
+        quizType,
       },
     );
 

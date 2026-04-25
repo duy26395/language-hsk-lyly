@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ArrowLeft,
@@ -11,8 +11,12 @@ import {
   GraduationCap,
   RotateCcw,
   XCircle,
+  ListChecks,
+  Headphones,
+  Volume2,
+  VolumeX,
 } from 'lucide-react';
-import { generateQuiz, QuizQuestion, AIModel } from '../lib/ai';
+import { generateQuiz, QuizQuestion, AIModel, QuizType, readAloud } from '../lib/ai';
 
 const HSK_LEVELS = [1, 2, 3, 4, 5, 6];
 const TOPICS = [
@@ -33,6 +37,7 @@ export default function QuizWizard({ selectedModel }: QuizWizardProps) {
   const [direction, setDirection] = useState(1);
   const [level, setLevel] = useState<number | null>(null);
   const [topic, setTopic] = useState<string | null>(null);
+  const [quizType, setQuizType] = useState<QuizType>('general');
   const [questionCount, setQuestionCount] = useState<number>(5);
 
   const [isGenerating, setIsGenerating] = useState(false);
@@ -40,6 +45,12 @@ export default function QuizWizard({ selectedModel }: QuizWizardProps) {
   const [currentQIndex, setCurrentQIndex] = useState(0);
   const [selectedAnswers, setSelectedAnswers] = useState<number[]>([]);
   const [score, setScore] = useState<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      window.speechSynthesis?.cancel();
+    };
+  }, [step]);
 
   const nextStep = () => {
     setDirection(1);
@@ -53,8 +64,9 @@ export default function QuizWizard({ selectedModel }: QuizWizardProps) {
 
   const handleGenerateQuiz = async () => {
     if (!level || !topic) return;
+    window.speechSynthesis?.cancel();
     setIsGenerating(true);
-    const result = await generateQuiz(level, topic, questionCount, selectedModel);
+    const result = await generateQuiz(level, topic, questionCount, selectedModel, quizType);
     if (result && result.length > 0) {
       setQuestions(result);
       setCurrentQIndex(0);
@@ -73,6 +85,7 @@ export default function QuizWizard({ selectedModel }: QuizWizardProps) {
   };
 
   const nextQuestion = () => {
+    window.speechSynthesis?.cancel();
     if (currentQIndex < questions.length - 1) {
       setCurrentQIndex(currentQIndex + 1);
     } else {
@@ -81,12 +94,14 @@ export default function QuizWizard({ selectedModel }: QuizWizardProps) {
   };
 
   const prevQuestion = () => {
+    window.speechSynthesis?.cancel();
     if (currentQIndex > 0) {
       setCurrentQIndex(currentQIndex - 1);
     }
   };
 
   const finishQuiz = () => {
+    window.speechSynthesis?.cancel();
     let correct = 0;
     for (let i = 0; i < questions.length; i++) {
       if (selectedAnswers[i] === questions[i].correctAnswerIndex) {
@@ -98,16 +113,21 @@ export default function QuizWizard({ selectedModel }: QuizWizardProps) {
   };
 
   const resetWizard = () => {
+    window.speechSynthesis?.cancel();
     setDirection(-1);
     setStep(1);
     setLevel(null);
     setTopic(null);
+    setQuizType('general');
     setQuestionCount(5);
     setScore(null);
     setQuestions([]);
     setSelectedAnswers([]);
     setCurrentQIndex(0);
   };
+
+  const currentQuestion = questions[currentQIndex];
+  const listeningDialogue = questions.find((question) => question.dialogue)?.dialogue;
 
   const variants = {
     enter: (moveDirection: number) => ({
@@ -188,7 +208,28 @@ export default function QuizWizard({ selectedModel }: QuizWizardProps) {
 
           {step === 2 && (
             <motion.div key="step2" custom={direction} variants={variants} initial="enter" animate="center" exit="exit" transition={springTransition} className="flex-1 flex flex-col">
-              <p className="text-slate-500 mb-6">Select a topic for AI to generate exercises</p>
+              <p className="text-slate-500 mb-6">Select how you want AI to generate exercises</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                {[
+                  { id: 'general' as QuizType, name: 'Vocabulary & Grammar', Icon: ListChecks },
+                  { id: 'listening' as QuizType, name: 'Listening Dialogue', Icon: Headphones },
+                ].map(({ id, name, Icon }) => (
+                  <motion.button
+                    key={id}
+                    onClick={() => setQuizType(id)}
+                    whileHover={{ y: -3 }}
+                    whileTap={{ scale: 0.97 }}
+                    className={`p-5 rounded-2xl border-2 transition-colors duration-200 flex items-center gap-4 hover:shadow-lg hover:shadow-violet-100 text-left ${quizType === id ? 'border-violet-500 bg-violet-50' : 'border-slate-100 hover:border-violet-200 bg-white'}`}
+                  >
+                    <span className={`grid h-12 w-12 place-items-center rounded-2xl ${quizType === id ? 'bg-violet-500 text-white' : 'bg-violet-50 text-violet-500'}`}>
+                      <Icon className="w-6 h-6" />
+                    </span>
+                    <span className="text-lg font-bold text-slate-700">{name}</span>
+                  </motion.button>
+                ))}
+              </div>
+
+              <p className="text-slate-500 mb-6">Select a topic</p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {TOPICS.map(({ id, name, Icon }) => (
                   <motion.button
@@ -232,12 +273,31 @@ export default function QuizWizard({ selectedModel }: QuizWizardProps) {
                 <h3 className="text-xl font-bold text-slate-800">Question {currentQIndex + 1} of {questions.length}</h3>
               </div>
 
+              {listeningDialogue && (
+                <motion.div layout className="bg-white p-5 rounded-2xl border border-violet-100 mb-5 shadow-sm">
+                  <div className="mb-4 flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-violet-500">
+                    <Headphones className="h-4 w-4" />
+                    Dialogue Audio
+                  </div>
+                  <div className="flex flex-wrap gap-3">
+                    <button onClick={() => readAloud(listeningDialogue)} className="inline-flex items-center gap-2 rounded-xl bg-violet-600 px-5 py-3 text-sm font-bold text-white shadow-md transition-all hover:bg-violet-700 active:scale-95">
+                      <Volume2 className="h-4 w-4" />
+                      Play Dialogue
+                    </button>
+                    <button onClick={() => window.speechSynthesis?.cancel()} className="inline-flex items-center gap-2 rounded-xl border border-violet-100 bg-white px-5 py-3 text-sm font-bold text-violet-600 transition-all hover:bg-violet-50 active:scale-95">
+                      <VolumeX className="h-4 w-4" />
+                      Stop
+                    </button>
+                  </div>
+                </motion.div>
+              )}
+
               <motion.div layout className="bg-slate-50/90 p-6 rounded-2xl border border-slate-100 mb-6 shadow-inner">
-                <p className="text-2xl text-slate-800 chinese">{questions[currentQIndex].question}</p>
+                <p className="text-2xl text-slate-800 chinese">{currentQuestion.question}</p>
               </motion.div>
 
               <div className="grid grid-cols-1 gap-3">
-                {questions[currentQIndex].options.map((opt, idx) => {
+                {currentQuestion.options.map((opt, idx) => {
                   const isSelected = selectedAnswers[currentQIndex] === idx;
                   return (
                     <motion.button
@@ -278,6 +338,15 @@ export default function QuizWizard({ selectedModel }: QuizWizardProps) {
               <p className="text-slate-500 mb-8 max-w-md">You have completed the HSK {level} practice. Review your answers, then try another set when you are ready.</p>
 
               <div className="w-full max-w-2xl space-y-3 mb-8 text-left">
+                {listeningDialogue && (
+                  <div className="rounded-2xl border border-violet-100 bg-violet-50/70 p-4 shadow-sm">
+                    <div className="mb-2 flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-violet-500">
+                      <Headphones className="h-4 w-4" />
+                      Dialogue
+                    </div>
+                    <p className="chinese whitespace-pre-line text-lg leading-relaxed text-slate-800">{listeningDialogue}</p>
+                  </div>
+                )}
                 {questions.map((question, idx) => {
                   const userAnswer = selectedAnswers[idx];
                   const isCorrect = userAnswer === question.correctAnswerIndex;

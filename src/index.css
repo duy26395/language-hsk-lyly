@@ -11,10 +11,62 @@
 }
 
 @layer base {
+  html {
+    min-height: 100%;
+    background: #fbfaff;
+  }
+
   body {
-    background-color: #f8fafc;
+    min-height: 100%;
+    background-color: #fbfaff;
     color: #0f172a;
     -webkit-tap-highlight-color: transparent;
+  }
+}
+
+@layer utilities {
+  .app-background {
+    position: fixed;
+    inset: 0;
+    z-index: -10;
+    overflow: hidden;
+    background:
+      linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(250,245,255,0.95) 36%, rgba(241,253,247,0.9) 68%, rgba(255,248,236,0.9) 100%);
+  }
+
+  .app-background::before {
+    content: "";
+    position: absolute;
+    inset: -8%;
+    background-image:
+      radial-gradient(ellipse 44px 20px at 8% 18%, rgba(236,72,153,0.16) 0 46%, transparent 48%),
+      radial-gradient(ellipse 20px 44px at 12% 14%, rgba(139,92,246,0.15) 0 44%, transparent 46%),
+      radial-gradient(ellipse 36px 16px at 86% 16%, rgba(16,185,129,0.16) 0 45%, transparent 47%),
+      radial-gradient(ellipse 16px 36px at 90% 20%, rgba(245,158,11,0.14) 0 45%, transparent 47%),
+      radial-gradient(ellipse 44px 18px at 18% 84%, rgba(16,185,129,0.13) 0 44%, transparent 46%),
+      radial-gradient(ellipse 18px 44px at 14% 80%, rgba(236,72,153,0.12) 0 44%, transparent 46%),
+      linear-gradient(115deg, transparent 0 10%, rgba(139,92,246,0.08) 10.2% 10.6%, transparent 10.8% 100%),
+      linear-gradient(65deg, transparent 0 83%, rgba(16,185,129,0.08) 83.2% 83.6%, transparent 83.8% 100%);
+    opacity: 0.95;
+  }
+
+  .app-background::after {
+    content: "";
+    position: absolute;
+    inset: auto -8% -16% -8%;
+    height: 42%;
+    background:
+      linear-gradient(8deg, rgba(139,92,246,0.08), transparent 58%),
+      linear-gradient(170deg, rgba(16,185,129,0.09), transparent 52%);
+    clip-path: polygon(0 38%, 12% 32%, 26% 44%, 42% 28%, 58% 42%, 74% 30%, 88% 40%, 100% 26%, 100% 100%, 0 100%);
+  }
+
+  .floral-corner {
+    background:
+      radial-gradient(ellipse 34px 14px at 68% 26%, rgba(236,72,153,0.22) 0 45%, transparent 47%),
+      radial-gradient(ellipse 14px 34px at 76% 34%, rgba(139,92,246,0.2) 0 45%, transparent 47%),
+      radial-gradient(ellipse 30px 12px at 54% 58%, rgba(16,185,129,0.18) 0 45%, transparent 47%),
+      linear-gradient(130deg, transparent 0 52%, rgba(139,92,246,0.14) 52.5% 54%, transparent 54.5% 100%);
   }
 }
 

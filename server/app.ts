@@ -3,7 +3,7 @@ import express from 'express';
 import path from 'node:path';
 import fs from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
-import { AIModel, explainWord, generateChineseText, generateQuiz, chatWithTeacher } from './services/ai';
+import { AIModel, QuizType, explainWord, generateChineseText, generateQuiz, chatWithTeacher } from './services/ai';
 
 const app = express();
 const allowedModels: AIModel[] = ['gemini', 'gpt-4o', 'gpt-3.5-turbo', 'llama-3.1-8b-instant', 'llama-3.3-70b-versatile', 'qwen/qwen3-32b', 'meta-llama/llama-4-scout-17b-16e-instruct', 'openai/gpt-oss-120b', 'github-gpt-4o', 'github-gpt-4o-mini'];
@@ -113,11 +113,12 @@ app.post('/api/generate-text', async (req, res) => {
 
 app.post('/api/generate-quiz', async (req, res) => {
   try {
-    const { hskLevel, topic, questionCount, model } = req.body as {
+    const { hskLevel, topic, questionCount, model, quizType } = req.body as {
       hskLevel?: unknown;
       topic?: unknown;
       questionCount?: unknown;
       model?: unknown;
+      quizType?: unknown;
     };
 
     if (typeof hskLevel !== 'number' || hskLevel < 1 || hskLevel > 6) {
@@ -129,8 +130,9 @@ app.post('/api/generate-quiz', async (req, res) => {
     }
 
     const safeCount = typeof questionCount === 'number' ? Math.min(Math.max(questionCount, 1), 10) : 5;
+    const safeQuizType: QuizType = quizType === 'listening' ? 'listening' : 'general';
 
-    const result = await generateQuiz(hskLevel, topic, safeCount, normalizeModel(model));
+    const result = await generateQuiz(hskLevel, topic, safeCount, normalizeModel(model), safeQuizType);
     return res.json({ result });
   } catch (error) {
     console.error('/api/generate-quiz error:', error);
@@ -231,7 +233,8 @@ app.use(express.static(distPath));
 
 // For SPA routing locally
 app.get(/^(?!\/api).+/, (_req, res) => {
-  res.sendFile(path.join(distPath, 'index.html')).catch(() => {
+  res.sendFile(path.join(distPath, 'index.html'), (error) => {
+    if (!error) return;
     // If dist doesn't exist (like on Netlify functions), just return 404 for non-API
     res.status(404).send('Not found');
   });

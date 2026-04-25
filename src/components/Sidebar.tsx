@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Search, BookOpen, PenTool, Book, Target, BrainCircuit, Settings, Mic } from 'lucide-react';
+import logoUrl from '../asset/public/lyly_logo.jpg';
 
 interface SidebarProps {
   activeTab: string;
@@ -28,7 +29,7 @@ export default function Sidebar({ activeTab, setActiveTab, showSettings, setShow
       <div className="md:hidden flex items-center justify-between px-6 py-4 bg-white/70 backdrop-blur-2xl border-b border-violet-100/40 sticky top-0 z-40 shadow-sm">
          <div className="flex items-center gap-3">
            <div className="w-8 h-8 rounded-full overflow-hidden border-2 border-fuchsia-400 shadow-sm">
-             <img src="/src/asset/public/lyly_logo.jpg" alt="Logo" className="w-full h-full object-cover" />
+             <img src={logoUrl} alt="Logo" className="w-full h-full object-cover" />
            </div>
            <span className="font-bold bg-clip-text text-transparent bg-gradient-to-r from-fuchsia-500 to-violet-600 text-lg tracking-tight">Chinese for LyLy</span>
          </div>
@@ -41,7 +42,7 @@ export default function Sidebar({ activeTab, setActiveTab, showSettings, setShow
       <nav className="fixed bottom-6 left-4 right-4 md:static md:w-[96px] shrink-0 flex flex-row md:flex-col print:hidden justify-around md:justify-start z-50 bg-white/70 backdrop-blur-2xl md:bg-white/80 border border-white/40 md:border-r md:border-violet-50/50 shadow-2xl md:shadow-none rounded-[2rem] md:rounded-none p-2 md:p-4 md:py-8 md:gap-4 transition-all duration-300">
         <div className="hidden md:flex flex-col items-center mb-6">
           <div className="w-14 h-14 rounded-2xl overflow-hidden border-2 border-white shadow-xl rotate-3 hover:rotate-0 transition-transform duration-500 cursor-pointer group">
-            <img src="/src/asset/public/lyly_logo.jpg" alt="LyLy" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
+            <img src={logoUrl} alt="LyLy" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
           </div>
           <div className="w-2 h-2 rounded-full bg-emerald-500 mt-3 shadow-[0_0_10px_#10b981]" />
         </div>

@@ -125,7 +125,7 @@ Respond ONLY with the JSON object. Do not include any thinking or reasoning proc
       },
     });
 
-    const jsonStr = cleanJsonContent(result.text() || '{}');
+    const jsonStr = cleanJsonContent(result.text || '{}');
     const parsed = JSON.parse(jsonStr) as any;
     return normalizeWordExplanation(parsed);
   }
@@ -213,7 +213,7 @@ export async function generateChineseText(
       model: 'gemini-1.5-flash',
       contents: [{ role: 'user', parts: [{ text: prompt }] }],
     });
-    return cleanThinkingTags(result.text() || '').trim() || null;
+    return cleanThinkingTags(result.text || '').trim() || null;
   }
 
   const isGroq = GROQ_PRIORITY_LIST.includes(model) || model === 'llama-3.1-8b-instant';
@@ -254,15 +254,38 @@ export interface QuizQuestion {
   question: string;
   options: string[];
   correctAnswerIndex: number;
+  dialogue?: string;
 }
+
+export type QuizType = 'general' | 'listening';
 
 export async function generateQuiz(
   hskLevel: number,
   topic: string,
   questionCount: number = 5,
   model: AIModel = 'gemini',
+  quizType: QuizType = 'general',
 ): Promise<QuizQuestion[] | null> {
-    const prompt = `Generate a ${questionCount}-question Chinese quiz at the HSK ${hskLevel} level about the topic: "${topic}". Include diverse question types (e.g., multiple choice, true/false, fill in the blanks, matching translations) where applicable. Provide the response as a JSON object containing a single key "questions", which is an array of objects. Each object must have: "question" (string in Chinese), "options" (array of 2 to 4 strings in Chinese), and "correctAnswerIndex" (integer). Respond ONLY with the JSON object. Do not include reasoning process or <think> tags.`;
+  const prompt = quizType === 'listening'
+    ? `Generate a Chinese listening comprehension quiz at the HSK ${hskLevel} level about the topic: "${topic}". First write one short natural Chinese dialogue between two people appropriate for HSK ${hskLevel}. Use Chinese speaker names like "小李：" and "小王：" and keep it easy to read aloud. Then create ${questionCount} multiple-choice questions based ONLY on that dialogue. Provide the response as a JSON object with "dialogue" (string in Chinese) and "questions" (array of objects). Each question object must have: "question" (string in Chinese), "options" (array of 2 to 4 strings in Chinese), and "correctAnswerIndex" (integer). Respond ONLY with the JSON object. Do not include reasoning process or <think> tags.`
+    : `Generate a ${questionCount}-question Chinese quiz at the HSK ${hskLevel} level about the topic: "${topic}". Include diverse question types (e.g., multiple choice, true/false, fill in the blanks, matching translations) where applicable. Provide the response as a JSON object containing a single key "questions", which is an array of objects. Each object must have: "question" (string in Chinese), "options" (array of 2 to 4 strings in Chinese), and "correctAnswerIndex" (integer). Respond ONLY with the JSON object. Do not include reasoning process or <think> tags.`;
+
+  const normalizeQuizResponse = (parsed: any): QuizQuestion[] => {
+    const dialogue = typeof parsed?.dialogue === 'string'
+      ? parsed.dialogue.trim()
+      : typeof parsed?.passage === 'string'
+        ? parsed.passage.trim()
+        : '';
+    const questions = Array.isArray(parsed?.questions) ? parsed.questions : [];
+    return questions.map((question: any) => ({
+      question: String(question.question || ''),
+      options: Array.isArray(question.options) ? question.options.map((option: any) => String(option)) : [],
+      correctAnswerIndex: Number.isInteger(question.correctAnswerIndex) ? question.correctAnswerIndex : 0,
+      dialogue: typeof question.dialogue === 'string' && question.dialogue.trim()
+        ? question.dialogue.trim()
+        : dialogue || undefined,
+    }));
+  };
 
   if (model === 'gemini') {
     const client = getGemini();
@@ -272,10 +295,10 @@ export async function generateQuiz(
       config: { responseMimeType: 'application/json' },
     });
 
-    const jsonStr = cleanJsonContent(result.text() || '{"questions":[]}');
+    const jsonStr = cleanJsonContent(result.text || '{"questions":[]}');
     try {
       const parsed = JSON.parse(jsonStr);
-      return parsed.questions || [];
+      return normalizeQuizResponse(parsed);
     } catch {
       return null;
     }
@@ -304,7 +327,7 @@ export async function generateQuiz(
         const content = response.choices[0].message.content;
         if (!content) continue;
         const parsed = JSON.parse(cleanJsonContent(content));
-        return parsed.questions || [];
+        return normalizeQuizResponse(parsed);
       } catch (e: any) {
         lastError = e;
         console.warn(`Groq model ${groqModel} failed: ${e.message}`);
@@ -328,7 +351,7 @@ export async function generateQuiz(
   if (content) {
     try {
       const parsed = JSON.parse(cleanJsonContent(content));
-      return parsed.questions || [];
+      return normalizeQuizResponse(parsed);
     } catch (e) {
       console.error('Quiz JSON Parse Error:', e, content);
       return null;
@@ -364,7 +387,7 @@ export async function chatWithTeacher(
       model: 'gemini-1.5-flash',
       contents: contents as any,
     });
-    return cleanThinkingTags(result.text() || '').trim() || null;
+    return cleanThinkingTags(result.text || '').trim() || null;
   }
 
   const isGroq = GROQ_PRIORITY_LIST.includes(model) || model === 'llama-3.1-8b-instant';
