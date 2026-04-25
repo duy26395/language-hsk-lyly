@@ -168,63 +168,73 @@ app.post('/api/chat-teacher', async (req, res) => {
   }
 });
 
+// Vocabulary path logic
+const getVocDir = () => {
+  try {
+    const root = process.cwd();
+    return path.join(root, 'server', 'voc');
+  } catch (e) {
+    return '/tmp/voc'; // Fallback for some serverless environments
+  }
+};
+
 app.post('/api/vocabulary', async (req, res) => {
   try {
     const { words } = req.body;
     const date = new Date();
     const dateStr = `${date.getDate().toString().padStart(2, '0')}${(date.getMonth() + 1).toString().padStart(2, '0')}${date.getFullYear()}`;
-    const __filename = fileURLToPath(import.meta.url);
-    const __dirname = path.dirname(__filename);
-    const vocDir = path.join(__dirname, 'voc');
+    const vocDir = getVocDir();
     
-    // Ensure directory exists
-    try { await fs.mkdir(vocDir, { recursive: true }); } catch (e) {}
-    
-    const fileName = `vocabulary_${dateStr}.json`;
-    const filePath = path.join(vocDir, fileName);
-    
-    await fs.writeFile(filePath, JSON.stringify(words, null, 2), 'utf-8');
-    
-    return res.json({ success: true, fileName });
+    // Ensure directory exists - wrap in try-catch because Netlify is read-only
+    try { 
+      await fs.mkdir(vocDir, { recursive: true }); 
+      const fileName = `vocabulary_${dateStr}.json`;
+      const filePath = path.join(vocDir, fileName);
+      await fs.writeFile(filePath, JSON.stringify(words, null, 2), 'utf-8');
+      return res.json({ success: true, fileName });
+    } catch (e) {
+      console.warn('FileSystem is read-only, vocabulary not saved to disk.');
+      return res.json({ success: true, note: 'Saved to session/cloud (Disk is read-only)' });
+    }
   } catch (error) {
     console.error('Save vocabulary error:', error);
-    return res.status(500).json({ error: 'Failed to save vocabulary to server.' });
+    return res.status(500).json({ error: 'Failed to save vocabulary.' });
   }
 });
 
 app.get('/api/vocabulary', async (req, res) => {
   try {
-    const __filename = fileURLToPath(import.meta.url);
-    const __dirname = path.dirname(__filename);
-    const vocDir = path.join(__dirname, 'voc');
-    try { await fs.mkdir(vocDir, { recursive: true }); } catch (e) {}
-    
-    const files = await fs.readdir(vocDir);
-    const jsonFiles = files.filter(f => f.startsWith('vocabulary_') && f.endsWith('.json')).sort().reverse();
-    
-    if (jsonFiles.length === 0) {
+    const vocDir = getVocDir();
+    try { 
+      const files = await fs.readdir(vocDir);
+      const jsonFiles = files.filter(f => f.startsWith('vocabulary_') && f.endsWith('.json')).sort().reverse();
+      
+      if (jsonFiles.length === 0) return res.json({ words: [] });
+      
+      const latestFile = jsonFiles[0];
+      const content = await fs.readFile(path.join(vocDir, latestFile), 'utf-8');
+      const words = JSON.parse(content);
+      return res.json({ words, fileName: latestFile });
+    } catch (e) {
       return res.json({ words: [] });
     }
-    
-    // Load the latest one by default
-    const latestFile = jsonFiles[0];
-    const content = await fs.readFile(path.join(vocDir, latestFile), 'utf-8');
-    const words = JSON.parse(content);
-    
-    return res.json({ words, fileName: latestFile });
   } catch (error) {
     console.error('Load vocabulary error:', error);
-    return res.status(500).json({ error: 'Failed to load vocabulary from server.' });
+    return res.status(500).json({ error: 'Failed to load vocabulary.' });
   }
 });
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const distPath = path.resolve(__dirname, '../dist');
-
+// Serve static files logic - only for local dev
+// On Netlify, redirects in netlify.toml handle this.
+const distPath = path.resolve(process.cwd(), 'dist');
 app.use(express.static(distPath));
-app.get('*', (_req, res) => {
-  res.sendFile(path.join(distPath, 'index.html'));
+
+// For SPA routing locally
+app.get(/^(?!\/api).+/, (_req, res) => {
+  res.sendFile(path.join(distPath, 'index.html')).catch(() => {
+    // If dist doesn't exist (like on Netlify functions), just return 404 for non-API
+    res.status(404).send('Not found');
+  });
 });
 
 export { app };
