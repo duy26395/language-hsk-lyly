@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, Loader2, History, Volume2, Lightbulb, Plus, BookOpen, Sparkles } from 'lucide-react';
+import { Search, Loader2, History, Volume2, Lightbulb, Plus, BookOpen, Sparkles, Video, Link as LinkIcon } from 'lucide-react';
 import { WordExplanation, explainWord, AIModel, readAloud } from '../lib/ai';
 
 interface SearchPageProps {
@@ -28,6 +28,51 @@ export default function SearchPage({ selectedModel, onAddToNotebook, fadeVariant
   const [loading, setLoading] = useState(false);
   const [explanation, setExplanation] = useState<WordExplanation | null>(null);
   const [history, setHistory] = useState<string[]>([]);
+  const getMeaningList = (item: WordExplanation) => {
+    if (item.meanings && item.meanings.length > 0) return item.meanings;
+    return item.meaning
+      .split(/[;,]|(?:\r?\n)/)
+      .map((entry) => entry.trim())
+      .filter(Boolean);
+  };
+
+  const getSafeVideoLinks = (item: WordExplanation) => {
+    const allowedHosts = new Set([
+      'youtube.com',
+      'www.youtube.com',
+      'm.youtube.com',
+      'youtu.be',
+      'bilibili.com',
+      'www.bilibili.com',
+      'm.bilibili.com',
+      'b23.tv',
+    ]);
+    const links = (item.videoLinks || []).filter((video) => {
+      try {
+        const parsed = new URL(video.url);
+        return allowedHosts.has(parsed.hostname.toLowerCase());
+      } catch {
+        return false;
+      }
+    });
+
+    if (links.length > 0) return links;
+
+    const keyword = encodeURIComponent(`${item.word} 中文`);
+    return [
+      { title: `YouTube: ${item.word}`, url: `https://www.youtube.com/results?search_query=${keyword}` },
+      { title: `Bilibili: ${item.word}`, url: `https://search.bilibili.com/all?keyword=${keyword}` },
+    ];
+  };
+
+  const getDictionaryLinks = (word: string) => {
+    const q = encodeURIComponent(word);
+    return [
+      { title: 'MDBG', url: `https://www.mdbg.net/chinese/dictionary?page=worddict&wdrst=0&wdqb=${q}` },
+      { title: 'Zdic', url: `https://www.zdic.net/hans/${q}` },
+      { title: 'Wiktionary (zh)', url: `https://zh.wiktionary.org/wiki/${q}` },
+    ];
+  };
 
   const handleSearch = async (e?: React.FormEvent, overrideQuery?: string) => {
     if (e) e.preventDefault();
@@ -120,7 +165,13 @@ export default function SearchPage({ selectedModel, onAddToNotebook, fadeVariant
                       </span>
                     </div>
                     <div className="text-xl text-violet-500 font-medium mb-3">{explanation.pinyin}</div>
-                    <div className="text-lg text-slate-700 font-semibold leading-relaxed">{explanation.meaning}</div>
+                    <div className="space-y-1">
+                      {getMeaningList(explanation).map((meaningItem, index) => (
+                        <div key={`${meaningItem}-${index}`} className="text-base md:text-lg text-slate-700 font-semibold leading-relaxed">
+                          {index + 1}. {meaningItem}
+                        </div>
+                      ))}
+                    </div>
                   </div>
                   <button
                     type="button"
@@ -149,6 +200,78 @@ export default function SearchPage({ selectedModel, onAddToNotebook, fadeVariant
                       <Lightbulb className="w-4 h-4" /> Mẹo học
                     </h4>
                     <p className="text-sm text-slate-700 leading-relaxed">{explanation.learningTip}</p>
+                  </div>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="bg-sky-50 rounded-2xl p-5 border border-sky-100">
+                    <h4 className="text-[10px] font-bold text-sky-600 uppercase tracking-wider mb-2">Phát âm</h4>
+                    <div className="text-sm text-slate-700">{explanation.pinyin}</div>
+                    {explanation.pronunciations && explanation.pronunciations.length > 0 && (
+                      <div className="mt-2 space-y-1">
+                        {explanation.pronunciations.map((pronounce, idx) => (
+                          <p key={`${pronounce}-${idx}`} className="text-sm text-slate-600">
+                            - {pronounce}
+                          </p>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <div className="bg-indigo-50 rounded-2xl p-5 border border-indigo-100">
+                    <h4 className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider mb-2">Cách dùng</h4>
+                    {explanation.usage ? (
+                      <p className="text-sm text-slate-700 leading-relaxed">{explanation.usage}</p>
+                    ) : (
+                      <p className="text-sm text-slate-500 leading-relaxed">Xem ví dụ bên dưới để áp dụng trong hội thoại.</p>
+                    )}
+                    {explanation.usageExamples && explanation.usageExamples.length > 0 && (
+                      <div className="mt-2 space-y-1">
+                        {explanation.usageExamples.map((usageItem, idx) => (
+                          <p key={`${usageItem}-${idx}`} className="chinese text-sm text-slate-600">
+                            - {usageItem}
+                          </p>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="bg-rose-50 rounded-2xl p-5 border border-rose-100">
+                    <h4 className="flex items-center gap-2 text-[10px] font-bold text-rose-600 uppercase tracking-widest mb-3">
+                      <Video className="w-4 h-4" /> Video tham khảo
+                    </h4>
+                    <div className="space-y-2">
+                      {getSafeVideoLinks(explanation).map((video, index) => (
+                        <a
+                          key={`${video.url}-${index}`}
+                          href={video.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="block text-sm text-rose-700 hover:text-rose-800 hover:underline break-all"
+                        >
+                          {index + 1}. {video.title || video.url}
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="bg-emerald-50 rounded-2xl p-5 border border-emerald-100">
+                    <h4 className="flex items-center gap-2 text-[10px] font-bold text-emerald-600 uppercase tracking-widest mb-3">
+                      <LinkIcon className="w-4 h-4" /> Từ điển Hanzi
+                    </h4>
+                    <div className="space-y-2">
+                      {getDictionaryLinks(explanation.word).map((dict, index) => (
+                        <a
+                          key={`${dict.url}-${index}`}
+                          href={dict.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="block text-sm text-emerald-700 hover:text-emerald-800 hover:underline break-all"
+                        >
+                          {index + 1}. {dict.title}
+                        </a>
+                      ))}
+                    </div>
                   </div>
                 </div>
 

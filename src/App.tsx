@@ -13,6 +13,7 @@ import CreatePage from './components/CreatePage';
 import NotebookPage from './components/NotebookPage';
 import SearchPage from './components/SearchPage';
 import SpeakingPage from './components/SpeakingPage';
+import AIChatPage from './components/AIChatPage';
 
 const softEase = [0.22, 1, 0.36, 1] as const;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -92,7 +93,7 @@ const formatReviewDue = (dueAt: number) => {
 };
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'search' | 'read' | 'create' | 'study' | 'quiz' | 'notebook' | 'speaking'>('search');
+  const [activeTab, setActiveTab] = useState<'search' | 'read' | 'create' | 'study' | 'quiz' | 'notebook' | 'speaking' | 'chat'>('search');
   const [selectedModel, setSelectedModel] = useState<AIModel>('qwen/qwen3-32b');
   const [showSettings, setShowSettings] = useState(false);
   const [showVoiceNotice, setShowVoiceNotice] = useState(false);
@@ -236,7 +237,7 @@ export default function App() {
         setSelectedModel={setSelectedModel} 
       />
 
-      <main className="flex-1 overflow-y-auto pb-32 md:pb-0 relative scroll-smooth bg-transparent">
+      <main className="flex-1 overflow-y-auto relative scroll-smooth bg-transparent">
         <AnimatePresence mode="wait">
           
           {activeTab === 'search' && (
@@ -259,6 +260,13 @@ export default function App() {
 
           {activeTab === 'speaking' && (
             <SpeakingPage 
+              selectedModel={selectedModel}
+              fadeVariants={fadeVariants}
+            />
+          )}
+
+          {activeTab === 'chat' && (
+            <AIChatPage
               selectedModel={selectedModel}
               fadeVariants={fadeVariants}
             />
@@ -327,7 +335,7 @@ export default function App() {
       <AnimatePresence>
         {showVoiceNotice && (
           <motion.div
-            className="fixed inset-0 z-[120] flex items-start justify-center overflow-y-auto bg-slate-900/50 px-4 pb-32 pt-5 backdrop-blur-md sm:items-center sm:py-6 md:pb-6"
+            className="fixed inset-0 z-[120] flex items-start justify-center overflow-y-auto bg-slate-900/50 px-4 pb-10 pt-5 backdrop-blur-md sm:items-center sm:py-6 md:pb-6"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}

@@ -68,6 +68,15 @@
       radial-gradient(ellipse 30px 12px at 54% 58%, rgba(16,185,129,0.18) 0 45%, transparent 47%),
       linear-gradient(130deg, transparent 0 52%, rgba(139,92,246,0.14) 52.5% 54%, transparent 54.5% 100%);
   }
+
+  .no-scrollbar {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 .chinese {

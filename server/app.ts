@@ -3,7 +3,7 @@ import express from 'express';
 import path from 'node:path';
 import fs from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
-import { AIModel, QuizType, explainWord, generateChineseText, generateQuiz, chatWithTeacher } from './services/ai';
+import { AIModel, QuizType, explainWord, generateChineseText, generateQuiz, chatWithTeacher, chatNormally } from './services/ai';
 
 const app = express();
 const allowedModels: AIModel[] = ['gemini', 'gpt-4o', 'gpt-3.5-turbo', 'llama-3.1-8b-instant', 'llama-3.3-70b-versatile', 'qwen/qwen3-32b', 'meta-llama/llama-4-scout-17b-16e-instruct', 'openai/gpt-oss-120b', 'github-gpt-4o', 'github-gpt-4o-mini'];
@@ -167,6 +167,34 @@ app.post('/api/chat-teacher', async (req, res) => {
   } catch (error) {
     console.error('/api/chat-teacher error:', error);
     return res.status(500).json({ error: 'Failed to chat with teacher.' });
+  }
+});
+
+app.post('/api/chat', async (req, res) => {
+  try {
+    const { message, history, model } = req.body as {
+      message?: unknown;
+      history?: unknown;
+      model?: unknown;
+    };
+
+    if (typeof message !== 'string' || !message.trim()) {
+      return res.status(400).json({ error: 'message is required.' });
+    }
+
+    if (!Array.isArray(history)) {
+      return res.status(400).json({ error: 'history must be an array.' });
+    }
+
+    const result = await chatNormally(
+      message,
+      history,
+      normalizeModel(model)
+    );
+    return res.json({ result });
+  } catch (error) {
+    console.error('/api/chat error:', error);
+    return res.status(500).json({ error: 'Failed to chat.' });
   }
 });
 

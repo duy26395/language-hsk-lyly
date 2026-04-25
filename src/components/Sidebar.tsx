@@ -1,6 +1,6 @@
 import React from 'react';
-import { motion } from 'framer-motion';
-import { Search, BookOpen, PenTool, Book, Target, BrainCircuit, Settings, Mic } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Search, BookOpen, PenTool, Book, Target, BrainCircuit, Settings, Mic, Menu, X as CloseIcon, MessageCircle } from 'lucide-react';
 import logoUrl from '../asset/public/lyly_logo.jpg';
 
 interface SidebarProps {
@@ -13,10 +13,13 @@ interface SidebarProps {
 const springTransition = { type: 'spring', stiffness: 360, damping: 32, mass: 0.7 };
 
 export default function Sidebar({ activeTab, setActiveTab, showSettings, setShowSettings }: SidebarProps) {
+  const [isMenuOpen, setIsMenuOpen] = React.useState(false);
+
   const tabs = [
     { id: 'search', icon: Search, label: 'Search' },
     { id: 'read', icon: BookOpen, label: 'Read' },
     { id: 'speaking', icon: Mic, label: 'Speak' },
+    { id: 'chat', icon: MessageCircle, label: 'AI Chat' },
     { id: 'create', icon: PenTool, label: 'Create' },
     { id: 'study', icon: BrainCircuit, label: 'Study' },
     { id: 'quiz', icon: Target, label: 'Practice' },
@@ -26,20 +29,87 @@ export default function Sidebar({ activeTab, setActiveTab, showSettings, setShow
   return (
     <>
       {/* Mobile Top Bar */}
-      <div className="md:hidden flex items-center justify-between px-6 py-4 bg-white/70 backdrop-blur-2xl border-b border-violet-100/40 sticky top-0 z-40 shadow-sm">
-         <div className="flex items-center gap-3">
+      <div className="md:hidden flex items-center justify-between gap-3 px-4 py-4 bg-white/70 backdrop-blur-2xl border-b border-violet-100/40 sticky top-0 z-[60] shadow-sm">
+         <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="p-2 text-violet-600 hover:bg-violet-50 rounded-xl transition-colors active:scale-95">
+           {isMenuOpen ? <CloseIcon className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+         </button>
+         <div className="flex min-w-0 flex-1 items-center gap-3">
            <div className="w-8 h-8 rounded-full overflow-hidden border-2 border-fuchsia-400 shadow-sm">
              <img src={logoUrl} alt="Logo" className="w-full h-full object-cover" />
            </div>
-           <span className="font-bold bg-clip-text text-transparent bg-gradient-to-r from-fuchsia-500 to-violet-600 text-lg tracking-tight">Chinese for LyLy</span>
+           <span className="truncate font-bold bg-clip-text text-transparent bg-gradient-to-r from-fuchsia-500 to-violet-600 text-lg tracking-tight">Chinese for LyLy</span>
          </div>
-         <button onClick={() => setShowSettings(!showSettings)} className="p-2 text-violet-400 hover:text-violet-600 hover:bg-violet-50 rounded-full transition-colors active:scale-95">
-           <Settings className="w-6 h-6" />
-         </button>
+         <div className="flex items-center gap-2">
+           <button onClick={() => setShowSettings(!showSettings)} className="p-2 text-violet-400 hover:text-violet-600 hover:bg-violet-50 rounded-full transition-colors active:scale-95">
+             <Settings className="w-6 h-6" />
+           </button>
+         </div>
       </div>
 
-      {/* Sidebar (Desktop) / Floating Bottom Nav (Mobile) */}
-      <nav className="fixed bottom-6 left-4 right-4 md:static md:w-[96px] shrink-0 flex flex-row md:flex-col print:hidden justify-around md:justify-start z-50 bg-white/70 backdrop-blur-2xl md:bg-white/80 border border-white/40 md:border-r md:border-violet-50/50 shadow-2xl md:shadow-none rounded-[2rem] md:rounded-none p-2 md:p-4 md:py-8 md:gap-4 transition-all duration-300">
+      {/* Mobile Menu Drawer */}
+      <AnimatePresence>
+        {isMenuOpen && (
+          <>
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsMenuOpen(false)}
+              className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[55] md:hidden"
+            />
+            <motion.div
+              initial={{ x: '-100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '-100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              className="fixed top-0 left-0 bottom-0 w-[280px] bg-white z-[56] md:hidden shadow-2xl flex flex-col p-6"
+            >
+              <div className="flex items-center gap-3 mb-10">
+                <div className="w-10 h-10 rounded-xl overflow-hidden border-2 border-fuchsia-400 shadow-sm">
+                  <img src={logoUrl} alt="Logo" className="w-full h-full object-cover" />
+                </div>
+                <span className="font-bold text-slate-800 text-xl">HSK LyLy</span>
+              </div>
+
+              <div className="flex flex-col gap-2">
+                {tabs.map((item) => (
+                  <button
+                    key={item.id}
+                    onClick={() => {
+                      setActiveTab(item.id as any);
+                      setIsMenuOpen(false);
+                    }}
+                    className={`flex items-center gap-4 p-4 rounded-2xl transition-all ${
+                      activeTab === item.id 
+                        ? 'bg-violet-600 text-white shadow-lg shadow-violet-200' 
+                        : 'text-slate-500 hover:bg-violet-50 hover:text-violet-600'
+                    }`}
+                  >
+                    <item.icon className="w-5 h-5" />
+                    <span className="font-semibold text-base">{item.label}</span>
+                  </button>
+                ))}
+              </div>
+
+              <div className="mt-auto pt-6 border-t border-slate-100">
+                <button 
+                  onClick={() => {
+                    setShowSettings(true);
+                    setIsMenuOpen(false);
+                  }}
+                  className="flex items-center gap-4 p-4 w-full text-slate-500 hover:bg-violet-50 hover:text-violet-600 rounded-2xl transition-all"
+                >
+                  <Settings className="w-5 h-5" />
+                  <span className="font-semibold text-base">Settings</span>
+                </button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* Sidebar (Desktop) */}
+      <nav className="hidden md:flex md:w-[96px] shrink-0 flex-col print:hidden justify-start z-50 bg-white/80 border-r border-violet-50/50 p-4 py-8 gap-4 transition-all duration-300">
         <div className="hidden md:flex flex-col items-center mb-6">
           <div className="w-14 h-14 rounded-2xl overflow-hidden border-2 border-white shadow-xl rotate-3 hover:rotate-0 transition-transform duration-500 cursor-pointer group">
             <img src={logoUrl} alt="LyLy" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
@@ -66,7 +136,7 @@ export default function Sidebar({ activeTab, setActiveTab, showSettings, setShow
           </motion.button>
         ))}
 
-        <div className="hidden md:flex flex-col items-center justify-center gap-1.5 p-4 rounded-2xl cursor-pointer text-slate-400 hover:text-violet-600 hover:bg-violet-50 transition-all md:mt-auto" onClick={() => setShowSettings(!showSettings)}>
+        <div className="flex flex-col items-center justify-center gap-1.5 p-4 rounded-2xl cursor-pointer text-slate-400 hover:text-violet-600 hover:bg-violet-50 transition-all mt-auto" onClick={() => setShowSettings(!showSettings)}>
           <Settings className="w-6 h-6" strokeWidth={2} />
         </div>
       </nav>

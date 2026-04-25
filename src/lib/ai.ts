@@ -4,8 +4,13 @@ export interface WordExplanation {
   word: string;
   pinyin: string;
   meaning: string;
+  meanings?: string[];
+  pronunciations?: string[];
   hskLevel: string;
   learningTip: string;
+  usage?: string;
+  usageExamples?: string[];
+  videoLinks?: { title: string; url: string }[];
   example: string;
   examplePinyin?: string;
   exampleMeaning: string;
@@ -138,6 +143,28 @@ export async function chatWithTeacher(
     return result;
   } catch (error) {
     console.error('Chat with teacher API error:', error);
+    return null;
+  }
+}
+
+export async function chatNormally(
+  message: string,
+  history: { role: 'user' | 'assistant'; content: string }[],
+  model: AIModel = 'gemini',
+): Promise<string | null> {
+  try {
+    const { result } = await postJson<{ result: string | null }>(
+      '/api/chat',
+      {
+        message,
+        history,
+        model,
+      },
+    );
+
+    return result;
+  } catch (error) {
+    console.error('Chat API error:', error);
     return null;
   }
 }
