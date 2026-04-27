@@ -1,5 +1,6 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import type { Transition } from 'framer-motion';
 import { AIModel } from '../lib/ai';
 
 interface SettingsModalProps {
@@ -9,7 +10,7 @@ interface SettingsModalProps {
   setSelectedModel: (model: AIModel) => void;
 }
 
-const springTransition = { type: 'spring', stiffness: 360, damping: 32, mass: 0.7 };
+const springTransition: Transition = { type: 'spring', stiffness: 360, damping: 32, mass: 0.7 };
 
 const modelGroups: {
   provider: string;
@@ -52,14 +53,14 @@ export default function SettingsModal({ showSettings, setShowSettings, selectedM
       {showSettings && (
         <motion.div 
           initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm" onClick={() => setShowSettings(false)}
+          className="fixed inset-0 z-[100] flex items-start justify-center overflow-y-auto bg-slate-900/40 p-3 py-5 backdrop-blur-sm sm:items-center sm:p-4" onClick={() => setShowSettings(false)}
         >
           <motion.div 
             initial={{ scale: 0.94, opacity: 0, y: 22, filter: 'blur(8px)' }}
             animate={{ scale: 1, opacity: 1, y: 0, filter: 'blur(0px)' }}
             exit={{ scale: 0.96, opacity: 0, y: 12, filter: 'blur(8px)' }}
             transition={springTransition}
-            className="bg-white rounded-[2rem] p-8 w-full max-w-sm shadow-2xl ring-1 ring-slate-900/5 overflow-y-auto max-h-[90vh]" onClick={e => e.stopPropagation()}
+            className="max-h-[92dvh] w-full max-w-sm overflow-y-auto rounded-[1.5rem] bg-white p-4 shadow-2xl ring-1 ring-slate-900/5 sm:rounded-[2rem] sm:p-6 md:p-8" onClick={e => e.stopPropagation()}
           >
             <h3 className="text-xl font-bold mb-6 text-slate-800">AI Settings</h3>
             <div className="space-y-5">
@@ -68,7 +69,7 @@ export default function SettingsModal({ showSettings, setShowSettings, selectedM
                 <div className="space-y-4">
                   {modelGroups.map((group) => (
                     <div key={group.provider} className="rounded-2xl border border-violet-100 bg-violet-50/30 p-3">
-                      <div className="flex items-center justify-between px-1 mb-2">
+                      <div className="mb-2 flex min-w-0 flex-col gap-1 px-1 min-[380px]:flex-row min-[380px]:items-center min-[380px]:justify-between">
                         <span className="text-sm font-bold text-slate-700">{group.provider}</span>
                         <span className="text-[10px] font-bold uppercase tracking-wider text-violet-400">{group.description}</span>
                       </div>
@@ -87,8 +88,8 @@ export default function SettingsModal({ showSettings, setShowSettings, selectedM
                                   : 'border-transparent bg-white/70 hover:bg-white hover:border-violet-200'
                               }`}
                             >
-                              <div className="flex items-center justify-between gap-3">
-                                <div>
+                              <div className="flex min-w-0 items-center justify-between gap-3">
+                                <div className="min-w-0">
                                   <div className="text-sm font-bold text-slate-800">{model.name}</div>
                                   <div className="text-[11px] text-slate-400 mt-0.5">{model.description}</div>
                                 </div>

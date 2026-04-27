@@ -3,6 +3,7 @@ import QuizWizard from './components/QuizWizard';
 import StudyDeck, { ReviewGrade, SavedWordEntry, WordReview } from './components/StudyDeck';
 import { WordExplanation, AIModel } from './lib/ai';
 import { motion, AnimatePresence } from 'framer-motion';
+import type { Variants } from 'framer-motion';
 import { Mic, ShieldCheck, Smartphone, X } from 'lucide-react';
 
 // New Components
@@ -212,14 +213,14 @@ export default function App() {
     );
   };
 
-  const fadeVariants = {
+  const fadeVariants: Variants = {
     hidden: { opacity: 0, y: 18, scale: 0.985, filter: 'blur(6px)' },
     visible: { opacity: 1, y: 0, scale: 1, filter: 'blur(0px)', transition: { duration: 0.45, ease: softEase } },
     exit: { opacity: 0, y: -10, scale: 0.99, filter: 'blur(4px)', transition: { duration: 0.22, ease: 'easeInOut' } }
   };
 
   return (
-    <div className="h-screen w-full flex flex-col md:flex-row font-sans overflow-hidden bg-[#fbfaff] text-slate-800 relative">
+    <div className="relative flex h-dvh min-h-dvh w-full min-w-0 flex-col overflow-hidden bg-[#fbfaff] font-sans text-slate-800 md:flex-row">
       <div className="app-background" />
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/10 via-transparent to-white/20" />
       
@@ -237,7 +238,7 @@ export default function App() {
         setSelectedModel={setSelectedModel} 
       />
 
-      <main className="flex-1 overflow-y-auto relative scroll-smooth bg-transparent">
+      <main className="relative min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto bg-transparent scroll-smooth">
         <AnimatePresence mode="wait">
           
           {activeTab === 'search' && (
@@ -290,9 +291,9 @@ export default function App() {
           )}
 
           {activeTab === 'study' && (
-            <motion.div key="study" variants={fadeVariants} initial="hidden" animate="visible" exit="exit" className="max-w-5xl mx-auto p-5 md:p-10 flex flex-col gap-6 min-h-full">
-              <div className="flex justify-between items-center print:hidden">
-                <div>
+            <motion.div key="study" variants={fadeVariants} initial="hidden" animate="visible" exit="exit" className="mx-auto flex min-h-full w-full max-w-5xl flex-col gap-5 p-4 sm:p-5 md:gap-6 md:p-10">
+              <div className="flex flex-col gap-3 print:hidden sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
                   <h1 className="text-2xl md:text-3xl font-bold text-slate-800 tracking-tight">Daily Study</h1>
                   <p className="mt-1 text-sm text-slate-500">Review saved words with lightweight spaced repetition.</p>
                 </div>
@@ -307,8 +308,8 @@ export default function App() {
           )}
 
           {activeTab === 'quiz' && (
-            <motion.div key="quiz" variants={fadeVariants} initial="hidden" animate="visible" exit="exit" className="max-w-4xl mx-auto p-5 md:p-10 flex flex-col gap-6 min-h-full">
-               <div className="flex justify-between items-center print:hidden">
+            <motion.div key="quiz" variants={fadeVariants} initial="hidden" animate="visible" exit="exit" className="mx-auto flex min-h-full w-full max-w-4xl flex-col gap-5 p-4 sm:p-5 md:gap-6 md:p-10">
+               <div className="flex flex-col gap-3 print:hidden sm:flex-row sm:items-center sm:justify-between">
                 <h1 className="text-2xl md:text-3xl font-bold text-slate-800 tracking-tight">HSK Practice</h1>
               </div>
               <QuizWizard selectedModel={selectedModel} />

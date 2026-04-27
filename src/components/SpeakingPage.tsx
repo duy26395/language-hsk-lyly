@@ -254,14 +254,14 @@ export default function SpeakingPage({ selectedModel, fadeVariants }: SpeakingPa
       initial="hidden"
       animate="visible"
       exit="exit"
-      className="mx-auto h-full min-h-0 w-full max-w-4xl overflow-hidden flex flex-col gap-3 p-4 pb-2 md:gap-4 md:p-10 md:pb-6 relative"
+      className="relative mx-auto flex h-full min-h-0 w-full max-w-4xl flex-col gap-3 overflow-hidden p-3 pb-2 sm:p-4 md:gap-4 md:p-10 md:pb-6"
     >
       <div className="flex justify-end print:hidden">
-        <div className="flex shrink-0 gap-2">
+        <div className="grid w-full grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] gap-2 sm:flex sm:w-auto sm:shrink-0 sm:flex-wrap sm:justify-end">
           <select
             value={hskLevel}
             onChange={(e) => setHskLevel(e.target.value)}
-            className="px-3 py-2 bg-white border border-violet-100 rounded-xl text-xs md:text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-violet-500/20"
+            className="w-full rounded-xl border border-violet-100 bg-white px-2 py-2 text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-violet-500/20 sm:w-auto sm:px-3 md:text-sm"
             aria-label="HSK level"
           >
             {[1, 2, 3, 4, 5, 6].map((level) => (
@@ -271,7 +271,7 @@ export default function SpeakingPage({ selectedModel, fadeVariants }: SpeakingPa
           <select
             value={ttsVoice}
             onChange={(e) => setTtsVoice(e.target.value)}
-            className="px-3 py-2 bg-white border border-violet-100 rounded-xl text-xs md:text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-violet-500/20"
+            className="w-full rounded-xl border border-violet-100 bg-white px-2 py-2 text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-violet-500/20 sm:w-auto sm:px-3 md:text-sm"
             aria-label="TTS Voice"
           >
             <option value="zh-CN-XiaoxiaoNeural">Nữ - Nhẹ nhàng</option>
@@ -280,7 +280,7 @@ export default function SpeakingPage({ selectedModel, fadeVariants }: SpeakingPa
           </select>
           <button
             onClick={resetSession}
-            className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors"
+            className="shrink-0 rounded-xl p-2 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-500"
             aria-label="Reset session"
           >
             <RotateCcw className="w-4 h-4 md:w-5 md:h-5" />
@@ -290,7 +290,7 @@ export default function SpeakingPage({ selectedModel, fadeVariants }: SpeakingPa
 
       <div className="flex-1 min-h-0 bg-white/65 backdrop-blur-md rounded-[1.25rem] md:rounded-[2rem] border border-violet-50 shadow-inner overflow-hidden flex flex-col">
         <div ref={chatScrollRef} className="flex-1 min-h-0 overflow-y-auto no-scrollbar p-3 md:p-4">
-          <div className="space-y-2">
+          <div className="min-w-0 space-y-2">
             {messages.map((message, index) => (
               <div
                 key={`${message.role}-${index}`}
@@ -307,7 +307,7 @@ export default function SpeakingPage({ selectedModel, fadeVariants }: SpeakingPa
                     message.role === 'user'
                       ? 'bg-slate-800 text-white rounded-br-md'
                       : 'bg-white text-slate-700 border border-violet-100 rounded-bl-md'
-                  }`}
+                  } break-words`}
                 >
                   <p className="text-sm md:text-base mb-1">{message.content}</p>
                   <button
@@ -356,16 +356,19 @@ export default function SpeakingPage({ selectedModel, fadeVariants }: SpeakingPa
               type="button"
               onPointerDown={(e) => {
                 e.preventDefault();
+                e.currentTarget.setPointerCapture(e.pointerId);
                 void startPressRecording();
               }}
               onPointerUp={(e) => {
                 e.preventDefault();
+                if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+                  e.currentTarget.releasePointerCapture(e.pointerId);
+                }
                 void stopPressRecording();
               }}
-              onPointerLeave={() => void stopPressRecording()}
               onPointerCancel={() => void stopPressRecording()}
               disabled={loading}
-              className={`flex h-20 w-20 md:h-24 md:w-24 shrink-0 items-center justify-center rounded-full transition-all active:scale-95 shadow-lg ${
+              className={`flex h-20 w-20 md:h-24 md:w-24 shrink-0 touch-none select-none items-center justify-center rounded-full transition-all active:scale-95 shadow-lg ${
                 isRecording
                   ? 'bg-red-500 text-white'
                   : 'bg-violet-600 text-white hover:bg-violet-700 disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none'

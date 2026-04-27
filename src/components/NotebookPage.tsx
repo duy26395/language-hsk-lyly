@@ -21,19 +21,19 @@ export default function NotebookPage({
   isSyncing, lastSynced, saveToServer, handlePrint, formatReviewDue, fadeVariants
 }: NotebookPageProps) {
 
-  const btnSecondary = "flex items-center justify-center gap-2 px-5 py-3 bg-white/90 border border-violet-100 text-violet-700 rounded-xl font-medium text-sm hover:bg-violet-50 hover:border-violet-200 hover:shadow-sm transition-all duration-300 active:scale-[0.97]";
+  const btnSecondary = "flex min-w-0 items-center justify-center gap-2 px-5 py-3 bg-white/90 border border-violet-100 text-violet-700 rounded-xl font-medium text-sm hover:bg-violet-50 hover:border-violet-200 hover:shadow-sm transition-all duration-300 active:scale-[0.97]";
   const textAreaClasses = "w-full bg-white/95 border border-violet-100 rounded-[1.25rem] p-5 text-[17px] leading-relaxed text-slate-700 focus:outline-none focus:ring-4 focus:ring-violet-500/10 focus:border-violet-400 shadow-sm transition-all duration-300 resize-none";
   const cardClasses = "bg-white/95 rounded-[1.25rem] p-5 md:p-6 shadow-[0_2px_20px_rgba(139,92,246,0.06)] border border-violet-50/80 hover:shadow-[0_10px_34px_rgba(139,92,246,0.13)] transition-all duration-500 relative overflow-hidden group";
 
   return (
-    <motion.div key="notebook" variants={fadeVariants} initial="hidden" animate="visible" exit="exit" className="max-w-5xl mx-auto p-5 md:p-10 flex flex-col gap-6 min-h-full print:bg-white print:p-0">
-      <div className="flex items-center justify-between print:hidden">
+    <motion.div key="notebook" variants={fadeVariants} initial="hidden" animate="visible" exit="exit" className="mx-auto flex min-h-full w-full max-w-5xl flex-col gap-5 p-4 print:bg-white print:p-0 sm:p-5 md:gap-6 md:p-10">
+      <div className="flex flex-col gap-3 print:hidden sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl md:text-3xl font-bold text-slate-800 tracking-tight">My Notebook</h1>
-        <div className="flex gap-2">
+        <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:justify-end">
           <button 
             onClick={() => saveToServer(savedWords)} 
             disabled={isSyncing || savedWords.length === 0}
-            className={`${btnSecondary} !py-2 !rounded-full text-xs font-semibold ${isSyncing ? 'opacity-70' : ''}`}
+            className={`${btnSecondary} !py-2 !px-3 !rounded-full text-xs font-semibold sm:!px-5 ${isSyncing ? 'opacity-70' : ''}`}
           >
             {isSyncing ? (
               <Loader2 className="w-4 h-4 animate-spin" />
@@ -44,13 +44,13 @@ export default function NotebookPage({
             )}
             {isSyncing ? 'Syncing...' : 'Save to JSON'}
           </button>
-          <button onClick={handlePrint} className={`${btnSecondary} !py-2 !rounded-full text-xs font-semibold`}>
+          <button onClick={handlePrint} className={`${btnSecondary} !py-2 !px-3 !rounded-full text-xs font-semibold sm:!px-5`}>
             <Printer className="w-4 h-4" /> Export PDF
           </button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 print:block print:w-full">
+      <div className="grid min-w-0 grid-cols-1 gap-6 print:block print:w-full lg:grid-cols-2 lg:gap-8">
         {/* Notes */}
         <div className="flex flex-col gap-4">
           <h2 className="text-xs uppercase tracking-widest text-violet-400 font-bold px-1 print:text-black">Personal Notes</h2>
@@ -79,14 +79,14 @@ export default function NotebookPage({
           ) : (
              <div className="flex flex-col gap-4">
                {savedWords.map((item, idx) => (
-                 <div key={idx} className={`${cardClasses} !p-5 format-avoid-break print:border-b print:border-slate-300 print:mb-4 hover:border-violet-200 transition-colors`}>
+                 <div key={idx} className={`${cardClasses} !p-4 format-avoid-break print:border-b print:border-slate-300 print:mb-4 hover:border-violet-200 transition-colors sm:!p-5`}>
                    {/* Border accent */}
                    <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-gradient-to-b from-fuchsia-400 to-violet-500 rounded-l-2xl"></div>
                    
-                   <div className="flex items-baseline gap-3 mb-3 ml-2">
-                     <span className="chinese font-bold text-3xl text-slate-800 tracking-wide">{item.word}</span>
-                     <span className="text-violet-500 font-medium">{item.explanation.pinyin}</span>
-                     <span className="text-[10px] font-bold px-2.5 py-1 rounded-md ml-auto bg-violet-50 text-violet-600 shadow-sm border border-violet-100/50">
+                   <div className="mb-3 ml-2 flex min-w-0 flex-wrap items-baseline gap-2 pr-8 sm:gap-3">
+                     <span className="chinese break-words text-3xl font-bold tracking-wide text-slate-800">{item.word}</span>
+                     <span className="break-words font-medium text-violet-500">{item.explanation.pinyin}</span>
+                     <span className="rounded-md border border-violet-100/50 bg-violet-50 px-2.5 py-1 text-[10px] font-bold text-violet-600 shadow-sm">
                        {item.explanation.hskLevel}
                      </span>
                    </div>
@@ -101,13 +101,13 @@ export default function NotebookPage({
                    <div className="text-[15px] text-slate-700 mb-3 font-semibold leading-relaxed ml-2">
                      {item.explanation.meaning}
                    </div>
-                   <div className="text-sm text-slate-500 bg-slate-50/80 rounded-xl p-4 border border-slate-100 ml-2 shadow-inner">
+                   <div className="ml-2 rounded-xl border border-slate-100 bg-slate-50/80 p-3 text-sm text-slate-500 shadow-inner sm:p-4">
                      <strong className="text-slate-600">Ex:</strong> <span className="chinese text-slate-700">{item.explanation.example}</span> <br/>
                      <span className="italic opacity-90 mt-1 inline-block text-violet-600/70">{item.explanation.exampleMeaning}</span>
                    </div>
                    <button 
                     onClick={() => handleRemoveWord(item.word)}
-                    className="absolute top-4 right-4 p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-full opacity-0 group-hover:opacity-100 transition-all print:hidden"
+                    className="absolute top-3 right-3 p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-full opacity-100 transition-all print:hidden sm:top-4 sm:right-4 sm:opacity-0 sm:group-hover:opacity-100"
                   >
                      <Trash2 className="w-4 h-4" />
                    </button>

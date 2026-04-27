@@ -218,7 +218,7 @@ export default function AIChatPage({ selectedModel, fadeVariants }: AIChatPagePr
       initial="hidden"
       animate="visible"
       exit="exit"
-      className="mx-auto flex h-full min-h-0 w-full max-w-5xl flex-col overflow-hidden p-4 pb-2 md:p-6 md:pb-6"
+      className="mx-auto flex h-full min-h-0 w-full max-w-5xl flex-col overflow-hidden p-3 pb-2 sm:p-4 md:p-6 md:pb-6"
     >
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl shadow-slate-200/70">
         <div ref={scrollRef} className="no-scrollbar flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto overflow-x-hidden bg-slate-50 px-3 py-4 scroll-smooth md:px-8 md:py-6">
@@ -247,7 +247,7 @@ export default function AIChatPage({ selectedModel, fadeVariants }: AIChatPagePr
                 }`}>
                   {msg.role === 'user' ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
                 </div>
-                <div className={`min-w-0 max-w-[84%] break-words p-3 text-[15px] leading-7 shadow-sm md:max-w-[78%] md:p-4 md:text-base ${
+                <div className={`min-w-0 max-w-[calc(100%-3rem)] break-words p-3 text-[15px] leading-7 shadow-sm sm:max-w-[84%] md:max-w-[78%] md:p-4 md:text-base ${
                   msg.role === 'user'
                     ? 'rounded-3xl rounded-br-md bg-slate-900 text-white'
                     : 'rounded-3xl rounded-bl-md border border-slate-200 bg-white text-slate-800'

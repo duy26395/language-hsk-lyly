@@ -25,14 +25,14 @@ export default function ReadPage({
   selectedModel, onAddToNotebook, fadeVariants 
 }: ReadPageProps) {
   
-  const btnPrimary = "flex items-center justify-center gap-2 px-6 py-3.5 bg-gradient-to-r from-fuchsia-500 via-violet-500 to-indigo-500 hover:from-fuchsia-500 hover:via-violet-600 hover:to-indigo-600 text-white rounded-2xl font-semibold text-sm shadow-lg shadow-violet-200/70 hover:shadow-xl hover:shadow-violet-200 transition-all duration-300 active:scale-[0.97] disabled:opacity-60 disabled:shadow-none disabled:active:scale-100";
-  const btnSecondary = "flex items-center justify-center gap-2 px-5 py-3 bg-white/90 border border-violet-100 text-violet-700 rounded-xl font-medium text-sm hover:bg-violet-50 hover:border-violet-200 hover:shadow-sm transition-all duration-300 active:scale-[0.97]";
+  const btnPrimary = "flex min-w-0 items-center justify-center gap-2 px-6 py-3.5 bg-gradient-to-r from-fuchsia-500 via-violet-500 to-indigo-500 hover:from-fuchsia-500 hover:via-violet-600 hover:to-indigo-600 text-white rounded-2xl font-semibold text-sm shadow-lg shadow-violet-200/70 hover:shadow-xl hover:shadow-violet-200 transition-all duration-300 active:scale-[0.97] disabled:opacity-60 disabled:shadow-none disabled:active:scale-100";
+  const btnSecondary = "flex min-w-0 items-center justify-center gap-2 px-5 py-3 bg-white/90 border border-violet-100 text-violet-700 rounded-xl font-medium text-sm hover:bg-violet-50 hover:border-violet-200 hover:shadow-sm transition-all duration-300 active:scale-[0.97]";
   const textAreaClasses = "w-full bg-white/95 border border-violet-100 rounded-[1.25rem] p-5 text-[17px] leading-relaxed text-slate-700 focus:outline-none focus:ring-4 focus:ring-violet-500/10 focus:border-violet-400 shadow-sm transition-all duration-300 resize-none";
   const cardClasses = "bg-white/95 rounded-[1.25rem] p-5 md:p-6 shadow-[0_2px_20px_rgba(139,92,246,0.06)] border border-violet-50/80 hover:shadow-[0_10px_34px_rgba(139,92,246,0.13)] transition-all duration-500 relative overflow-hidden group";
 
   return (
-    <motion.div key="read" variants={fadeVariants} initial="hidden" animate="visible" exit="exit" className="max-w-4xl mx-auto p-5 md:p-10 flex flex-col gap-6 min-h-full">
-      <div className="flex justify-between items-center print:hidden">
+    <motion.div key="read" variants={fadeVariants} initial="hidden" animate="visible" exit="exit" className="mx-auto flex min-h-full w-full max-w-4xl flex-col gap-5 p-4 sm:p-5 md:gap-6 md:p-10">
+      <div className="flex flex-col gap-3 print:hidden sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl md:text-3xl font-bold text-slate-800 tracking-tight">Reading Area</h1>
         {readText && (
           <button onClick={() => setReadText('')} className="text-sm font-semibold text-violet-400 hover:text-violet-600 transition-colors px-3 py-2 rounded-lg hover:bg-violet-50">
@@ -42,14 +42,14 @@ export default function ReadPage({
       </div>
 
       {!readText ? (
-        <div className="flex-1 flex flex-col gap-5">
+        <div className="flex min-w-0 flex-1 flex-col gap-5">
           <textarea
             value={readInput}
             onChange={(e) => setReadInput(e.target.value)}
             placeholder="Paste your Chinese text here..."
             className={`${textAreaClasses} flex-1 min-h-[300px] md:min-h-[400px] shadow-sm`}
           />
-          <div className="flex flex-wrap gap-2">
+          <div className="flex min-w-0 flex-wrap gap-2">
             <span className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold uppercase tracking-wider text-violet-400">
               <Sparkles className="w-3.5 h-3.5" /> Quick start
             </span>
@@ -73,8 +73,8 @@ export default function ReadPage({
           </button>
         </div>
       ) : (
-        <div className="flex-1 flex flex-col gap-4 relative">
-          <div className="flex justify-end gap-2 mb-1">
+        <div className="relative flex min-w-0 flex-1 flex-col gap-4">
+          <div className="mb-1 flex flex-wrap justify-end gap-2">
             <button onClick={() => {
               if (window.speechSynthesis) window.speechSynthesis.cancel();
             }} className={`${btnSecondary} !py-2 !px-4 !rounded-full !text-xs !bg-white/50 backdrop-blur-sm shadow-sm`}>

@@ -1,5 +1,6 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import type { Transition } from 'framer-motion';
 import { Search, BookOpen, PenTool, Book, Target, BrainCircuit, Settings, Mic, Menu, X as CloseIcon, MessageCircle } from 'lucide-react';
 import logoUrl from '../asset/public/lyly_logo.jpg';
 
@@ -10,7 +11,7 @@ interface SidebarProps {
   setShowSettings: (show: boolean) => void;
 }
 
-const springTransition = { type: 'spring', stiffness: 360, damping: 32, mass: 0.7 };
+const springTransition: Transition = { type: 'spring', stiffness: 360, damping: 32, mass: 0.7 };
 
 export default function Sidebar({ activeTab, setActiveTab, showSettings, setShowSettings }: SidebarProps) {
   const [isMenuOpen, setIsMenuOpen] = React.useState(false);
@@ -29,17 +30,17 @@ export default function Sidebar({ activeTab, setActiveTab, showSettings, setShow
   return (
     <>
       {/* Mobile Top Bar */}
-      <div className="md:hidden flex items-center justify-between gap-3 px-4 py-4 bg-white/70 backdrop-blur-2xl border-b border-violet-100/40 sticky top-0 z-[60] shadow-sm">
-         <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="p-2 text-violet-600 hover:bg-violet-50 rounded-xl transition-colors active:scale-95">
+      <div className="z-[60] flex shrink-0 items-center justify-between gap-2 border-b border-violet-100/40 bg-white/80 px-3 py-3 shadow-sm backdrop-blur-2xl md:hidden">
+         <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="shrink-0 p-2 text-violet-600 hover:bg-violet-50 rounded-xl transition-colors active:scale-95">
            {isMenuOpen ? <CloseIcon className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
          </button>
          <div className="flex min-w-0 flex-1 items-center gap-3">
-           <div className="w-8 h-8 rounded-full overflow-hidden border-2 border-fuchsia-400 shadow-sm">
+           <div className="h-8 w-8 shrink-0 overflow-hidden rounded-full border-2 border-fuchsia-400 shadow-sm">
              <img src={logoUrl} alt="Logo" className="w-full h-full object-cover" />
            </div>
-           <span className="truncate font-bold bg-clip-text text-transparent bg-gradient-to-r from-fuchsia-500 to-violet-600 text-lg tracking-tight">Chinese for LyLy</span>
+           <span className="truncate bg-gradient-to-r from-fuchsia-500 to-violet-600 bg-clip-text text-base font-bold tracking-tight text-transparent min-[360px]:text-lg">Chinese for LyLy</span>
          </div>
-         <div className="flex items-center gap-2">
+         <div className="flex shrink-0 items-center gap-2">
            <button onClick={() => setShowSettings(!showSettings)} className="p-2 text-violet-400 hover:text-violet-600 hover:bg-violet-50 rounded-full transition-colors active:scale-95">
              <Settings className="w-6 h-6" />
            </button>
@@ -62,7 +63,7 @@ export default function Sidebar({ activeTab, setActiveTab, showSettings, setShow
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="fixed top-0 left-0 bottom-0 w-[280px] bg-white z-[56] md:hidden shadow-2xl flex flex-col p-6"
+              className="fixed bottom-0 left-0 top-0 z-[56] flex w-[280px] max-w-[86vw] flex-col overflow-y-auto bg-white p-5 shadow-2xl md:hidden"
             >
               <div className="flex items-center gap-3 mb-10">
                 <div className="w-10 h-10 rounded-xl overflow-hidden border-2 border-fuchsia-400 shadow-sm">

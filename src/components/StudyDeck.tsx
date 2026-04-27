@@ -105,7 +105,7 @@ export default function StudyDeck({ words, onReview, onOpenNotebook, onOpenReadi
 
   if (words.length === 0) {
     return (
-      <div className="min-h-[520px] rounded-[1.5rem] border border-dashed border-violet-100 bg-white/80 p-8 flex flex-col items-center justify-center text-center shadow-sm">
+      <div className="flex min-h-[420px] flex-col items-center justify-center rounded-[1.5rem] border border-dashed border-violet-100 bg-white/80 p-5 text-center shadow-sm sm:min-h-[520px] sm:p-8">
         <div className="grid h-16 w-16 place-items-center rounded-2xl bg-violet-50 text-violet-500 mb-5">
           <BrainCircuit className="h-8 w-8" />
         </div>
@@ -120,7 +120,7 @@ export default function StudyDeck({ words, onReview, onOpenNotebook, onOpenReadi
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex min-w-0 flex-col gap-5 md:gap-6">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <StatCard icon={CalendarCheck} label="Due now" value={dueWords.length} accent="text-violet-600 bg-violet-50" />
         <StatCard icon={Layers3} label="Saved" value={words.length} accent="text-sky-600 bg-sky-50" />
@@ -128,9 +128,9 @@ export default function StudyDeck({ words, onReview, onOpenNotebook, onOpenReadi
         <StatCard icon={CheckCircle2} label="Mastered" value={masteredCount} accent="text-emerald-600 bg-emerald-50" />
       </div>
 
-      <div className="rounded-[1.5rem] border border-violet-100 bg-white/90 shadow-sm overflow-hidden">
-        <div className="flex items-center justify-between border-b border-violet-50 px-5 py-4">
-          <div>
+      <div className="min-w-0 overflow-hidden rounded-[1.5rem] border border-violet-100 bg-white/90 shadow-sm">
+        <div className="flex flex-col gap-3 border-b border-violet-50 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+          <div className="min-w-0">
             <p className="text-xs font-bold uppercase tracking-wider text-violet-400">
               {dueWords.length > 0 ? 'Daily review' : 'Extra practice'}
             </p>
@@ -144,14 +144,14 @@ export default function StudyDeck({ words, onReview, onOpenNotebook, onOpenReadi
         </div>
 
         {currentWord && (
-          <div className="p-5 md:p-8">
+          <div className="p-4 sm:p-5 md:p-8">
             <motion.button
               type="button"
               onClick={() => setIsRevealed((value) => !value)}
               whileTap={{ scale: 0.985 }}
-              className="w-full min-h-[300px] rounded-[1.5rem] border border-slate-100 bg-gradient-to-br from-white to-violet-50/40 p-6 text-left shadow-inner transition-all hover:border-violet-200"
+              className="w-full min-h-[280px] rounded-[1.5rem] border border-slate-100 bg-gradient-to-br from-white to-violet-50/40 p-4 text-left shadow-inner transition-all hover:border-violet-200 sm:min-h-[300px] sm:p-6"
             >
-              <div className="flex items-center justify-between mb-6">
+              <div className="mb-6 flex flex-wrap items-center justify-between gap-2">
                 <span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-violet-500 shadow-sm border border-violet-100">
                   {currentWord.explanation.hskLevel}
                 </span>
@@ -164,14 +164,14 @@ export default function StudyDeck({ words, onReview, onOpenNotebook, onOpenReadi
               <AnimatePresence mode="wait">
                 {!isRevealed ? (
                   <motion.div key="front" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="flex flex-col items-center justify-center text-center min-h-[210px]">
-                    <div className="chinese text-6xl md:text-7xl font-black text-slate-900 tracking-wide">{currentWord.word}</div>
+                    <div className="chinese break-words text-5xl font-black tracking-wide text-slate-900 sm:text-6xl md:text-7xl">{currentWord.word}</div>
                     <p className="mt-5 text-sm font-medium text-slate-400">Think of the pinyin, meaning, and one example before revealing.</p>
                   </motion.div>
                 ) : (
                   <motion.div key="back" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="min-h-[210px]">
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <div className="chinese text-5xl font-black text-slate-900">{currentWord.word}</div>
+                    <div className="flex min-w-0 items-start justify-between gap-3 sm:gap-4">
+                      <div className="min-w-0">
+                        <div className="chinese break-words text-4xl font-black text-slate-900 sm:text-5xl">{currentWord.word}</div>
                         <p className="mt-2 text-lg font-bold text-violet-600">{currentWord.explanation.pinyin}</p>
                       </div>
                       <button
@@ -197,7 +197,7 @@ export default function StudyDeck({ words, onReview, onOpenNotebook, onOpenReadi
               </AnimatePresence>
             </motion.button>
 
-            <div className="mt-5 grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="mt-5 grid grid-cols-2 gap-2 sm:gap-3 md:grid-cols-4">
               {(Object.keys(gradeConfig) as ReviewGrade[]).map((grade) => (
                 <button
                   key={grade}
@@ -211,7 +211,7 @@ export default function StudyDeck({ words, onReview, onOpenNotebook, onOpenReadi
               ))}
             </div>
 
-            <div className="mt-4 flex items-center justify-between text-xs font-semibold text-slate-400">
+            <div className="mt-4 flex flex-col gap-2 text-xs font-semibold text-slate-400 sm:flex-row sm:items-center sm:justify-between">
               <span>Next due: {formatDue(getReview(currentWord).dueAt)}</span>
               <button
                 onClick={() => {
@@ -243,7 +243,7 @@ function StatCard({
   accent: string;
 }) {
   return (
-    <div className="rounded-2xl border border-violet-50 bg-white/90 p-4 shadow-sm">
+    <div className="min-w-0 rounded-2xl border border-violet-50 bg-white/90 p-3 shadow-sm sm:p-4">
       <div className={`mb-3 grid h-10 w-10 place-items-center rounded-xl ${accent}`}>
         <Icon className="h-5 w-5" />
       </div>

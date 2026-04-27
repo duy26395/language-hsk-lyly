@@ -94,28 +94,28 @@ export default function SearchPage({ selectedModel, onAddToNotebook, fadeVariant
   };
 
   return (
-    <motion.div key="search" variants={fadeVariants} initial="hidden" animate="visible" exit="exit" className="max-w-4xl mx-auto p-5 md:p-10 flex flex-col gap-6 min-h-full">
-      <div className="flex justify-between items-center print:hidden">
-        <div>
+    <motion.div key="search" variants={fadeVariants} initial="hidden" animate="visible" exit="exit" className="mx-auto flex min-h-full w-full max-w-4xl flex-col gap-5 p-4 sm:p-5 md:gap-6 md:p-10">
+      <div className="flex flex-col gap-3 print:hidden sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
           <h1 className="text-2xl md:text-3xl font-bold text-slate-800 tracking-tight">Tìm kiếm Từ điển</h1>
           <p className="text-sm text-slate-500 mt-1">Tra nghĩa, cấp độ HSK, ví dụ và mẹo học nhanh.</p>
         </div>
       </div>
 
       <div className="flex flex-col gap-6">
-        <form onSubmit={handleSearch} className="relative group">
+        <form onSubmit={handleSearch} className="relative group min-w-0">
           <input
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Tìm từ tiếng Trung, VD: 学习, 朋友..."
-            className="w-full bg-white/95 border border-violet-100 rounded-2xl py-4 pl-12 pr-28 text-base md:text-lg focus:outline-none focus:ring-4 focus:ring-violet-500/10 focus:border-violet-400 shadow-sm transition-all group-hover:shadow-md"
+            className="w-full bg-white/95 border border-violet-100 rounded-2xl py-4 pl-11 pr-20 text-base md:pl-12 md:pr-28 md:text-lg focus:outline-none focus:ring-4 focus:ring-violet-500/10 focus:border-violet-400 shadow-sm transition-all group-hover:shadow-md"
           />
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-violet-400 group-focus-within:text-violet-600 transition-colors" />
           <button
             type="submit"
             disabled={loading}
-            className="absolute right-2 top-1/2 -translate-y-1/2 px-4 py-2 bg-violet-600 text-white rounded-xl font-bold text-sm hover:bg-violet-700 transition-all active:scale-95 disabled:opacity-50"
+            className="absolute right-2 top-1/2 -translate-y-1/2 rounded-xl bg-violet-600 px-3 py-2 text-sm font-bold text-white transition-all hover:bg-violet-700 active:scale-95 disabled:opacity-50 md:px-4"
           >
             {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Tìm'}
           </button>
@@ -149,14 +149,14 @@ export default function SearchPage({ selectedModel, onAddToNotebook, fadeVariant
               key={explanation.word}
               initial={{ opacity: 0, y: 14 }}
               animate={{ opacity: 1, y: 0 }}
-              className="relative overflow-hidden bg-white/95 rounded-[1.5rem] p-5 md:p-7 shadow-[0_18px_50px_rgba(139,92,246,0.12)] border border-violet-50"
+              className="relative min-w-0 overflow-hidden rounded-[1.5rem] border border-violet-50 bg-white/95 p-4 shadow-[0_18px_50px_rgba(139,92,246,0.12)] sm:p-5 md:p-7"
             >
               <div className="absolute right-0 top-0 h-28 w-36 floral-corner opacity-70" />
               <div className="relative flex flex-col gap-6">
-                <div className="flex items-start justify-between gap-4">
+                <div className="flex min-w-0 items-start justify-between gap-3 sm:gap-4">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-3 mb-1">
-                      <h2 className="chinese text-4xl md:text-5xl font-bold text-slate-800">{explanation.word}</h2>
+                      <h2 className="chinese break-words text-4xl font-bold text-slate-800 md:text-5xl">{explanation.word}</h2>
                       <span
                         className="text-[10px] font-bold px-2.5 py-0.5 rounded-lg text-white shadow-sm uppercase tracking-wider"
                         style={{ background: getHskColor(explanation.hskLevel) }}
@@ -164,7 +164,7 @@ export default function SearchPage({ selectedModel, onAddToNotebook, fadeVariant
                         {explanation.hskLevel}
                       </span>
                     </div>
-                    <div className="text-xl text-violet-500 font-medium mb-3">{explanation.pinyin}</div>
+                    <div className="mb-3 break-words text-lg font-medium text-violet-500 sm:text-xl">{explanation.pinyin}</div>
                     <div className="space-y-1">
                       {getMeaningList(explanation).map((meaningItem, index) => (
                         <div key={`${meaningItem}-${index}`} className="text-base md:text-lg text-slate-700 font-semibold leading-relaxed">
@@ -184,7 +184,7 @@ export default function SearchPage({ selectedModel, onAddToNotebook, fadeVariant
                 </div>
 
                 <div className="grid gap-4 md:grid-cols-[1.4fr_1fr]">
-                  <div className="bg-violet-50/70 rounded-2xl p-5 border border-violet-100/70">
+                  <div className="min-w-0 rounded-2xl border border-violet-100/70 bg-violet-50/70 p-4 sm:p-5">
                     <h4 className="flex items-center gap-2 text-[10px] font-bold text-violet-500 uppercase tracking-widest mb-3">
                       <BookOpen className="w-4 h-4" /> Ví dụ
                     </h4>
@@ -195,7 +195,7 @@ export default function SearchPage({ selectedModel, onAddToNotebook, fadeVariant
                     <div className="text-slate-500 italic text-sm">{explanation.exampleMeaning}</div>
                   </div>
 
-                  <div className="bg-amber-50 rounded-2xl p-5 border border-amber-100">
+                  <div className="min-w-0 rounded-2xl border border-amber-100 bg-amber-50 p-4 sm:p-5">
                     <h4 className="flex items-center gap-2 text-[10px] font-bold text-amber-600 uppercase tracking-widest mb-2">
                       <Lightbulb className="w-4 h-4" /> Mẹo học
                     </h4>
@@ -204,7 +204,7 @@ export default function SearchPage({ selectedModel, onAddToNotebook, fadeVariant
                 </div>
 
                 <div className="grid gap-4 md:grid-cols-2">
-                  <div className="bg-sky-50 rounded-2xl p-5 border border-sky-100">
+                  <div className="min-w-0 rounded-2xl border border-sky-100 bg-sky-50 p-4 sm:p-5">
                     <h4 className="text-[10px] font-bold text-sky-600 uppercase tracking-wider mb-2">Phát âm</h4>
                     <div className="text-sm text-slate-700">{explanation.pinyin}</div>
                     {explanation.pronunciations && explanation.pronunciations.length > 0 && (
@@ -217,7 +217,7 @@ export default function SearchPage({ selectedModel, onAddToNotebook, fadeVariant
                       </div>
                     )}
                   </div>
-                  <div className="bg-indigo-50 rounded-2xl p-5 border border-indigo-100">
+                  <div className="min-w-0 rounded-2xl border border-indigo-100 bg-indigo-50 p-4 sm:p-5">
                     <h4 className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider mb-2">Cách dùng</h4>
                     {explanation.usage ? (
                       <p className="text-sm text-slate-700 leading-relaxed">{explanation.usage}</p>
@@ -237,7 +237,7 @@ export default function SearchPage({ selectedModel, onAddToNotebook, fadeVariant
                 </div>
 
                 <div className="grid gap-4 md:grid-cols-2">
-                  <div className="bg-rose-50 rounded-2xl p-5 border border-rose-100">
+                  <div className="min-w-0 rounded-2xl border border-rose-100 bg-rose-50 p-4 sm:p-5">
                     <h4 className="flex items-center gap-2 text-[10px] font-bold text-rose-600 uppercase tracking-widest mb-3">
                       <Video className="w-4 h-4" /> Video tham khảo
                     </h4>
@@ -255,7 +255,7 @@ export default function SearchPage({ selectedModel, onAddToNotebook, fadeVariant
                       ))}
                     </div>
                   </div>
-                  <div className="bg-emerald-50 rounded-2xl p-5 border border-emerald-100">
+                  <div className="min-w-0 rounded-2xl border border-emerald-100 bg-emerald-50 p-4 sm:p-5">
                     <h4 className="flex items-center gap-2 text-[10px] font-bold text-emerald-600 uppercase tracking-widest mb-3">
                       <LinkIcon className="w-4 h-4" /> Từ điển Hanzi
                     </h4>

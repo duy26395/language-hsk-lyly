@@ -42,8 +42,9 @@ export default function InteractiveText({ text, onAddToNotebook, selectedModel =
     const end = Math.min(segments.length, index + 10);
     const context = segments.slice(start, end).join('');
 
-    const x = Math.max(16, Math.min(rect.left + rect.width / 2 - 140, window.innerWidth - 296));
-    const y = Math.min(rect.bottom + 12, window.innerHeight - 332);
+    const popoverWidth = Math.min(320, window.innerWidth - 32);
+    const x = Math.max(16, Math.min(rect.left + rect.width / 2 - popoverWidth / 2, window.innerWidth - popoverWidth - 16));
+    const y = Math.max(16, Math.min(rect.bottom + 12, window.innerHeight - 332));
     const cacheKey = `${selectedModel}:${word}:${context}`;
     const cached = explanationCache.current.get(cacheKey);
 
@@ -79,7 +80,7 @@ export default function InteractiveText({ text, onAddToNotebook, selectedModel =
   };
 
   return (
-    <div className="chinese text-[18px] md:text-[20px] leading-[2.2] text-slate-800" style={{ position: 'relative' }}>
+    <div className="chinese min-w-0 [overflow-wrap:anywhere] text-[18px] leading-[2.1] text-slate-800 md:text-[20px] md:leading-[2.2]" style={{ position: 'relative' }}>
       {segments.map((segment, idx) => {
         const isChinese = /[\u4e00-\u9fa5]/.test(segment);
         const isSelected = selected?.word === segment;
@@ -105,7 +106,7 @@ export default function InteractiveText({ text, onAddToNotebook, selectedModel =
           animate={{ opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
           exit={{ opacity: 0, y: 8, scale: 0.98, filter: 'blur(10px)' }}
           transition={{ type: 'spring', stiffness: 400, damping: 30, mass: 0.8 }}
-          className="fixed w-[320px] bg-white/90 backdrop-blur-2xl border border-violet-100 shadow-[0_25px_60px_-15px_rgba(139,92,246,0.2)] p-6 rounded-[2rem] z-[60] text-left overflow-hidden"
+          className="fixed z-[60] max-h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] max-w-[320px] overflow-y-auto rounded-[1.5rem] border border-violet-100 bg-white/95 p-4 text-left shadow-[0_25px_60px_-15px_rgba(139,92,246,0.2)] backdrop-blur-2xl sm:rounded-[2rem] sm:p-6"
           style={{ top: selected.y, left: selected.x }}
         >
           {/* Decorative gradients */}
@@ -185,7 +186,7 @@ export default function InteractiveText({ text, onAddToNotebook, selectedModel =
                   </div>
 
                   {(explanation.synonyms || explanation.antonyms) && (
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-1 gap-2 min-[360px]:grid-cols-2">
                       {explanation.synonyms && explanation.synonyms !== 'none' && (
                         <div className="bg-emerald-50/50 border border-emerald-100/50 rounded-xl p-2.5">
                           <div className="text-[9px] font-bold text-emerald-600 uppercase tracking-wider mb-1">Đồng nghĩa</div>

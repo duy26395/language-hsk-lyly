@@ -28,28 +28,28 @@ export default function WordModal({ explanation, onClose, onAddToNotebook }: Wor
         initial={{ opacity: 0 }} 
         animate={{ opacity: 1 }} 
         exit={{ opacity: 0 }}
-        className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md"
+        className="fixed inset-0 z-[100] flex items-start justify-center overflow-y-auto bg-slate-900/60 p-3 py-5 backdrop-blur-md sm:items-center sm:p-4"
         onClick={onClose}
       >
         <motion.div 
           initial={{ scale: 0.9, opacity: 0, y: 20 }}
           animate={{ scale: 1, opacity: 1, y: 0 }}
           exit={{ scale: 0.95, opacity: 0, y: 10 }}
-          className="bg-white rounded-[2.5rem] p-8 w-full max-w-lg shadow-2xl relative overflow-hidden"
+          className="relative max-h-[92dvh] w-full max-w-lg overflow-y-auto rounded-[1.5rem] bg-white p-4 shadow-2xl sm:rounded-[2.5rem] sm:p-8"
           onClick={e => e.stopPropagation()}
         >
           {/* Decorative background */}
           <div className="absolute top-0 right-0 w-32 h-32 bg-violet-500/5 rounded-bl-full -mr-8 -mt-8" />
           
-          <button onClick={onClose} className="absolute top-6 right-6 p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-all">
+          <button onClick={onClose} className="absolute right-4 top-4 rounded-full p-2 text-slate-400 transition-all hover:bg-slate-100 hover:text-slate-600 sm:right-6 sm:top-6">
             <X className="w-6 h-6" />
           </button>
 
           <div className="flex flex-col gap-6">
-            <div className="flex justify-between items-start gap-4">
-              <div className="flex-1">
-                <div className="flex items-center gap-3 mb-1">
-                  <h2 className="chinese text-4xl font-bold text-slate-800">{explanation.word}</h2>
+            <div className="flex min-w-0 items-start justify-between gap-3 sm:gap-4">
+              <div className="min-w-0 flex-1">
+                <div className="mb-1 flex flex-wrap items-center gap-3 pr-9 sm:pr-0">
+                  <h2 className="chinese break-words text-4xl font-bold text-slate-800">{explanation.word}</h2>
                   <span 
                     className="text-[10px] font-bold px-2.5 py-0.5 rounded-lg text-white shadow-sm uppercase tracking-wider"
                     style={{ background: getHskColor(explanation.hskLevel) }}
@@ -57,8 +57,8 @@ export default function WordModal({ explanation, onClose, onAddToNotebook }: Wor
                     {explanation.hskLevel}
                   </span>
                 </div>
-                <div className="text-xl text-violet-500 font-medium mb-3">{explanation.pinyin}</div>
-                <div className="text-lg text-slate-700 font-semibold leading-relaxed">
+                <div className="mb-3 break-words text-lg font-medium text-violet-500 sm:text-xl">{explanation.pinyin}</div>
+                <div className="text-base font-semibold leading-relaxed text-slate-700 sm:text-lg">
                   {explanation.meaning}
                 </div>
               </div>
@@ -71,7 +71,7 @@ export default function WordModal({ explanation, onClose, onAddToNotebook }: Wor
             </div>
 
             <div className="space-y-4">
-              <div className="bg-slate-50 rounded-2xl p-5 border border-slate-100">
+              <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4 sm:p-5">
                 <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Ví dụ sử dụng</h4>
                 <div className="chinese text-lg text-slate-800 mb-1 leading-relaxed">
                   {explanation.example}
@@ -84,7 +84,7 @@ export default function WordModal({ explanation, onClose, onAddToNotebook }: Wor
                 </div>
               </div>
 
-              <div className="bg-amber-50 rounded-2xl p-5 border border-amber-100 flex gap-4">
+              <div className="flex gap-3 rounded-2xl border border-amber-100 bg-amber-50 p-4 sm:gap-4 sm:p-5">
                 <Lightbulb className="w-6 h-6 text-amber-500 shrink-0" />
                 <div>
                   <h4 className="text-[10px] font-bold text-amber-600 uppercase tracking-widest mb-1">Mẹo học tập</h4>
@@ -93,7 +93,7 @@ export default function WordModal({ explanation, onClose, onAddToNotebook }: Wor
               </div>
 
               {(explanation.synonyms || explanation.antonyms) && (
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
                   {explanation.synonyms && explanation.synonyms !== 'none' && (
                     <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-4">
                       <h4 className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider mb-1">Đồng nghĩa</h4>

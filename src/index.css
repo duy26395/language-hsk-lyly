@@ -13,14 +13,35 @@
 @layer base {
   html {
     min-height: 100%;
+    width: 100%;
     background: #fbfaff;
+    overflow-x: hidden;
   }
 
   body {
     min-height: 100%;
+    width: 100%;
     background-color: #fbfaff;
     color: #0f172a;
     -webkit-tap-highlight-color: transparent;
+    overflow-x: hidden;
+  }
+
+  #root {
+    min-height: 100dvh;
+    width: 100%;
+    overflow-x: hidden;
+  }
+
+  *, *::before, *::after {
+    box-sizing: border-box;
+  }
+
+  input,
+  textarea,
+  select,
+  button {
+    min-width: 0;
   }
 }
 

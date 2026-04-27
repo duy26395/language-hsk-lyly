@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import type { Transition } from 'framer-motion';
 import {
   ArrowLeft,
   CheckCircle2,
@@ -26,7 +27,7 @@ const TOPICS = [
   { id: 'school', name: 'School & Study', Icon: GraduationCap },
 ];
 
-const springTransition = { type: 'spring', stiffness: 340, damping: 31, mass: 0.72 };
+const springTransition: Transition = { type: 'spring', stiffness: 340, damping: 31, mass: 0.72 };
 
 interface QuizWizardProps {
   selectedModel: AIModel;
@@ -148,11 +149,11 @@ export default function QuizWizard({ selectedModel }: QuizWizardProps) {
   };
 
   return (
-    <div className="bg-white/95 rounded-[1.5rem] shadow-sm border border-violet-100 p-6 md:p-8 relative overflow-hidden min-h-[500px] flex flex-col">
+    <div className="relative flex min-h-[460px] min-w-0 flex-col overflow-hidden rounded-[1.5rem] border border-violet-100 bg-white/95 p-4 shadow-sm sm:p-6 md:min-h-[500px] md:p-8">
       <div className="pointer-events-none absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-violet-50/80 to-transparent" />
 
-      <div className="flex items-center justify-between mb-8 relative z-10">
-        <div className="flex gap-2">
+      <div className="relative z-10 mb-6 flex flex-col gap-4 sm:mb-8 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 gap-2">
           {step > 1 && (
             <button onClick={prevStep} className="p-2 hover:bg-violet-50 rounded-full text-violet-600 transition-colors active:scale-95">
               <ArrowLeft className="w-5 h-5" />
@@ -186,7 +187,7 @@ export default function QuizWizard({ selectedModel }: QuizWizardProps) {
           {step === 1 && (
             <motion.div key="step1" custom={direction} variants={variants} initial="enter" animate="center" exit="exit" transition={springTransition} className="flex-1 flex flex-col">
               <p className="text-slate-500 mb-6">Which HSK level do you want to practice?</p>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 gap-3 min-[360px]:grid-cols-2 md:grid-cols-3 md:gap-4">
                 {HSK_LEVELS.map((hskLevel) => (
                   <motion.button
                     key={hskLevel}
@@ -196,9 +197,9 @@ export default function QuizWizard({ selectedModel }: QuizWizardProps) {
                     }}
                     whileHover={{ y: -3 }}
                     whileTap={{ scale: 0.96 }}
-                    className={`p-6 rounded-2xl border-2 transition-colors duration-200 flex flex-col items-center justify-center gap-2 hover:shadow-lg hover:shadow-violet-100 ${level === hskLevel ? 'border-violet-500 bg-violet-50' : 'border-slate-100 hover:border-violet-200 bg-white'}`}
+                    className={`flex min-h-[116px] flex-col items-center justify-center gap-2 rounded-2xl border-2 p-4 text-center transition-colors duration-200 hover:shadow-lg hover:shadow-violet-100 sm:p-6 ${level === hskLevel ? 'border-violet-500 bg-violet-50' : 'border-slate-100 hover:border-violet-200 bg-white'}`}
                   >
-                    <span className="text-3xl font-bold text-slate-800">HSK {hskLevel}</span>
+                    <span className="text-2xl font-bold text-slate-800 sm:text-3xl">HSK {hskLevel}</span>
                     <span className="text-sm text-slate-400">Vocabulary & Grammar</span>
                   </motion.button>
                 ))}
@@ -219,12 +220,12 @@ export default function QuizWizard({ selectedModel }: QuizWizardProps) {
                     onClick={() => setQuizType(id)}
                     whileHover={{ y: -3 }}
                     whileTap={{ scale: 0.97 }}
-                    className={`p-5 rounded-2xl border-2 transition-colors duration-200 flex items-center gap-4 hover:shadow-lg hover:shadow-violet-100 text-left ${quizType === id ? 'border-violet-500 bg-violet-50' : 'border-slate-100 hover:border-violet-200 bg-white'}`}
+                    className={`flex min-w-0 items-center gap-3 rounded-2xl border-2 p-4 text-left transition-colors duration-200 hover:shadow-lg hover:shadow-violet-100 sm:gap-4 sm:p-5 ${quizType === id ? 'border-violet-500 bg-violet-50' : 'border-slate-100 hover:border-violet-200 bg-white'}`}
                   >
                     <span className={`grid h-12 w-12 place-items-center rounded-2xl ${quizType === id ? 'bg-violet-500 text-white' : 'bg-violet-50 text-violet-500'}`}>
                       <Icon className="w-6 h-6" />
                     </span>
-                    <span className="text-lg font-bold text-slate-700">{name}</span>
+                    <span className="min-w-0 text-base font-bold text-slate-700 sm:text-lg">{name}</span>
                   </motion.button>
                 ))}
               </div>
@@ -237,12 +238,12 @@ export default function QuizWizard({ selectedModel }: QuizWizardProps) {
                     onClick={() => setTopic(id)}
                     whileHover={{ y: -3 }}
                     whileTap={{ scale: 0.97 }}
-                    className={`p-5 rounded-2xl border-2 transition-colors duration-200 flex items-center gap-4 hover:shadow-lg hover:shadow-violet-100 text-left ${topic === id ? 'border-violet-500 bg-violet-50' : 'border-slate-100 hover:border-violet-200 bg-white'}`}
+                    className={`flex min-w-0 items-center gap-3 rounded-2xl border-2 p-4 text-left transition-colors duration-200 hover:shadow-lg hover:shadow-violet-100 sm:gap-4 sm:p-5 ${topic === id ? 'border-violet-500 bg-violet-50' : 'border-slate-100 hover:border-violet-200 bg-white'}`}
                   >
                     <span className={`grid h-12 w-12 place-items-center rounded-2xl ${topic === id ? 'bg-violet-500 text-white' : 'bg-violet-50 text-violet-500'}`}>
                       <Icon className="w-6 h-6" />
                     </span>
-                    <span className="text-lg font-bold text-slate-700">{name}</span>
+                    <span className="min-w-0 text-base font-bold text-slate-700 sm:text-lg">{name}</span>
                   </motion.button>
                 ))}
               </div>
@@ -259,8 +260,8 @@ export default function QuizWizard({ selectedModel }: QuizWizardProps) {
                 />
               </div>
 
-              <div className="mt-auto pt-8 flex justify-end">
-                <button onClick={handleGenerateQuiz} disabled={!topic || isGenerating} className="px-8 py-3.5 rounded-2xl bg-gradient-to-r from-fuchsia-500 to-violet-600 text-white font-bold shadow-lg shadow-violet-200 hover:shadow-xl hover:-translate-y-0.5 transition-all active:scale-95 flex items-center gap-2 disabled:opacity-50 disabled:pointer-events-none">
+              <div className="mt-auto flex justify-stretch pt-8 sm:justify-end">
+                <button onClick={handleGenerateQuiz} disabled={!topic || isGenerating} className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-fuchsia-500 to-violet-600 px-6 py-3.5 font-bold text-white shadow-lg shadow-violet-200 transition-all hover:-translate-y-0.5 hover:shadow-xl active:scale-95 disabled:pointer-events-none disabled:opacity-50 sm:w-auto sm:px-8">
                   {isGenerating ? <><Loader2 className="w-5 h-5 animate-spin" /> Preparing...</> : <><CheckCircle2 className="w-5 h-5" /> Start Quiz</>}
                 </button>
               </div>
@@ -269,7 +270,7 @@ export default function QuizWizard({ selectedModel }: QuizWizardProps) {
 
           {step === 3 && questions.length > 0 && (
             <motion.div key="step3" custom={direction} variants={variants} initial="enter" animate="center" exit="exit" transition={springTransition} className="flex-1 flex flex-col">
-              <div className="flex justify-between items-center mb-6">
+              <div className="mb-5 flex flex-col gap-2 sm:mb-6 sm:flex-row sm:items-center sm:justify-between">
                 <h3 className="text-xl font-bold text-slate-800">Question {currentQIndex + 1} of {questions.length}</h3>
               </div>
 
@@ -292,8 +293,8 @@ export default function QuizWizard({ selectedModel }: QuizWizardProps) {
                 </motion.div>
               )}
 
-              <motion.div layout className="bg-slate-50/90 p-6 rounded-2xl border border-slate-100 mb-6 shadow-inner">
-                <p className="text-2xl text-slate-800 chinese">{currentQuestion.question}</p>
+              <motion.div layout className="mb-5 rounded-2xl border border-slate-100 bg-slate-50/90 p-4 shadow-inner sm:mb-6 sm:p-6">
+                <p className="chinese break-words text-xl text-slate-800 sm:text-2xl">{currentQuestion.question}</p>
               </motion.div>
 
               <div className="grid grid-cols-1 gap-3">
@@ -305,7 +306,7 @@ export default function QuizWizard({ selectedModel }: QuizWizardProps) {
                       onClick={() => selectAnswer(idx)}
                       whileHover={{ x: 3 }}
                       whileTap={{ scale: 0.98 }}
-                      className={`p-4 text-left rounded-xl border-2 transition-colors chinese text-lg ${isSelected ? 'border-violet-500 bg-violet-50 text-violet-700 font-bold shadow-sm' : 'border-slate-100 bg-white hover:border-violet-200 text-slate-700'}`}
+                      className={`rounded-xl border-2 p-3 text-left chinese text-base transition-colors sm:p-4 sm:text-lg ${isSelected ? 'border-violet-500 bg-violet-50 text-violet-700 font-bold shadow-sm' : 'border-slate-100 bg-white hover:border-violet-200 text-slate-700'}`}
                     >
                       {opt}
                     </motion.button>
@@ -313,11 +314,11 @@ export default function QuizWizard({ selectedModel }: QuizWizardProps) {
                 })}
               </div>
 
-              <div className="mt-auto pt-8 flex justify-between">
-                <button onClick={prevQuestion} disabled={currentQIndex === 0} className="px-6 py-3 rounded-xl font-bold text-slate-500 hover:bg-slate-100 disabled:opacity-50 transition-all">
+              <div className="mt-auto flex gap-2 pt-8">
+                <button onClick={prevQuestion} disabled={currentQIndex === 0} className="flex-1 rounded-xl px-4 py-3 font-bold text-slate-500 transition-all hover:bg-slate-100 disabled:opacity-50 sm:flex-none sm:px-6">
                   Previous
                 </button>
-                <button onClick={nextQuestion} disabled={selectedAnswers[currentQIndex] === -1} className="px-8 py-3 rounded-xl bg-violet-600 text-white font-bold shadow-md hover:bg-violet-700 disabled:opacity-50 transition-all active:scale-95">
+                <button onClick={nextQuestion} disabled={selectedAnswers[currentQIndex] === -1} className="flex-1 rounded-xl bg-violet-600 px-4 py-3 font-bold text-white shadow-md transition-all hover:bg-violet-700 active:scale-95 disabled:opacity-50 sm:flex-none sm:px-8">
                   {currentQIndex === questions.length - 1 ? 'Submit' : 'Next'}
                 </button>
               </div>
