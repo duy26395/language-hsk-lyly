@@ -5,10 +5,13 @@ import fs from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { AIModel, QuizType, explainWord, generateChineseText, generateQuiz, chatWithTeacher, chatNormally } from './services/ai';
 
+import { runSpeakPipeline } from './services/voice-pipeline';
+import { normalizeChineseVoice, synthesizeChineseSpeech } from './services/tts-provider';
+
 const app = express();
 const allowedModels: AIModel[] = ['gemini', 'gpt-4o', 'gpt-3.5-turbo', 'llama-3.1-8b-instant', 'llama-3.3-70b-versatile', 'qwen/qwen3-32b', 'meta-llama/llama-4-scout-17b-16e-instruct', 'openai/gpt-oss-120b', 'github-gpt-4o', 'github-gpt-4o-mini'];
 
-app.use(express.json({ limit: '1mb' }));
+app.use(express.json({ limit: '10mb' }));
 
 const requestBuckets = new Map<string, { count: number; resetAt: number }>();
 const RATE_LIMIT_WINDOW_MS = 60_000;
@@ -195,6 +198,78 @@ app.post('/api/chat', async (req, res) => {
   } catch (error) {
     console.error('/api/chat error:', error);
     return res.status(500).json({ error: 'Failed to chat.' });
+  }
+});
+
+
+
+// ─── Voice Pipeline Endpoint (Groq STT → LLM → TTS) ──────────────────────────
+
+app.post('/api/speak', async (req, res) => {
+  try {
+    const { audio, history, hskLevel, ttsVoice, fileName } = req.body as {
+      audio?: string;       // base64 encoded audio
+      history?: unknown;
+      hskLevel?: unknown;
+      ttsVoice?: unknown;
+      fileName?: unknown;
+    };
+
+    if (typeof audio !== 'string' || !audio) {
+      return res.status(400).json({ error: 'audio (base64) is required.' });
+    }
+
+    const audioBuffer = Buffer.from(audio, 'base64');
+    if (audioBuffer.byteLength === 0 || audioBuffer.byteLength > 8 * 1024 * 1024) {
+      return res.status(413).json({ error: 'Audio is empty or too large.' });
+    }
+
+    const chatHistory = Array.isArray(history)
+      ? history.filter((h: any) => h.role && h.content).slice(-12)
+      : [];
+    const level = typeof hskLevel === 'string' && /^HSK [1-6]$/.test(hskLevel) ? hskLevel : 'HSK 3';
+    const voice = normalizeChineseVoice(ttsVoice);
+    const name = typeof fileName === 'string' && /\.(webm|wav|mp3|ogg|m4a|flac)$/i.test(fileName) ? fileName : 'audio.webm';
+
+    const result = await runSpeakPipeline(audioBuffer, chatHistory, level, name, voice);
+
+    if (!result) {
+      return res.status(422).json({ error: 'Could not process audio. Try speaking more clearly.' });
+    }
+
+    return res.json({
+      userText: result.userText,
+      assistantText: result.assistantText,
+      audio: result.audioBuffer.toString('base64'),
+      mimeType: result.mimeType,
+      ttsProvider: result.ttsProvider,
+    });
+  } catch (error: any) {
+    console.error('/api/speak error:', error);
+    return res.status(500).json({ error: 'Voice pipeline failed: ' + (error.message || 'Unknown error') });
+  }
+});
+
+// ─── TTS-only Endpoint ────────────────────────────────────────────────────────
+
+app.post('/api/tts', async (req, res) => {
+  try {
+    const { text, ttsVoice } = req.body as { text?: unknown, ttsVoice?: unknown };
+
+    if (typeof text !== 'string' || !text.trim()) {
+      return res.status(400).json({ error: 'text is required.' });
+    }
+
+    const voice = normalizeChineseVoice(ttsVoice);
+    const audio = await synthesizeChineseSpeech(text.trim().slice(0, 2000), voice);
+    return res.json({
+      audio: audio.audioBuffer.toString('base64'),
+      mimeType: audio.mimeType,
+      ttsProvider: audio.provider,
+    });
+  } catch (error: any) {
+    console.error('/api/tts error:', error);
+    return res.status(500).json({ error: 'TTS failed: ' + (error.message || 'Unknown error') });
   }
 });
 

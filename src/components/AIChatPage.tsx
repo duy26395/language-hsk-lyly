@@ -13,6 +13,171 @@ interface AIChatPageProps {
   fadeVariants: any;
 }
 
+type MarkdownBlock =
+  | { type: 'code'; content: string; language?: string }
+  | { type: 'heading'; content: string; level: number }
+  | { type: 'list'; ordered: boolean; items: string[] }
+  | { type: 'paragraph'; lines: string[] };
+
+const parseMarkdown = (content: string): MarkdownBlock[] => {
+  const lines = content.replace(/\r\n/g, '\n').split('\n');
+  const blocks: MarkdownBlock[] = [];
+  let paragraph: string[] = [];
+  let listItems: string[] = [];
+  let listOrdered = false;
+  let codeLines: string[] = [];
+  let codeLanguage = '';
+  let inCode = false;
+
+  const flushParagraph = () => {
+    if (paragraph.length) {
+      blocks.push({ type: 'paragraph', lines: paragraph });
+      paragraph = [];
+    }
+  };
+
+  const flushList = () => {
+    if (listItems.length) {
+      blocks.push({ type: 'list', ordered: listOrdered, items: listItems });
+      listItems = [];
+    }
+  };
+
+  for (const line of lines) {
+    const fenceMatch = line.match(/^```(\w+)?\s*$/);
+    if (fenceMatch) {
+      if (inCode) {
+        blocks.push({ type: 'code', content: codeLines.join('\n'), language: codeLanguage });
+        codeLines = [];
+        codeLanguage = '';
+        inCode = false;
+      } else {
+        flushParagraph();
+        flushList();
+        inCode = true;
+        codeLanguage = fenceMatch[1] || '';
+      }
+      continue;
+    }
+
+    if (inCode) {
+      codeLines.push(line);
+      continue;
+    }
+
+    if (!line.trim()) {
+      flushParagraph();
+      flushList();
+      continue;
+    }
+
+    const headingMatch = line.match(/^(#{1,3})\s+(.+)$/);
+    if (headingMatch) {
+      flushParagraph();
+      flushList();
+      blocks.push({
+        type: 'heading',
+        level: headingMatch[1].length,
+        content: headingMatch[2].trim(),
+      });
+      continue;
+    }
+
+    const unorderedMatch = line.match(/^\s*[-*]\s+(.+)$/);
+    const orderedMatch = line.match(/^\s*\d+\.\s+(.+)$/);
+    const listMatch = unorderedMatch || orderedMatch;
+    if (listMatch) {
+      flushParagraph();
+      const ordered = Boolean(orderedMatch);
+      if (listItems.length && listOrdered !== ordered) flushList();
+      listOrdered = ordered;
+      listItems.push(listMatch[1].trim());
+      continue;
+    }
+
+    flushList();
+    paragraph.push(line);
+  }
+
+  if (inCode) {
+    blocks.push({ type: 'code', content: codeLines.join('\n'), language: codeLanguage });
+  }
+  flushParagraph();
+  flushList();
+  return blocks;
+};
+
+const renderInlineMarkdown = (text: string) => {
+  const parts = text.split(/(`[^`]+`|\*\*[^*]+\*\*)/g);
+  return parts.map((part, index) => {
+    if (part.startsWith('`') && part.endsWith('`')) {
+      return (
+        <code key={index} className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[0.9em] text-slate-700">
+          {part.slice(1, -1)}
+        </code>
+      );
+    }
+    if (part.startsWith('**') && part.endsWith('**')) {
+      return <strong key={index} className="font-bold">{part.slice(2, -2)}</strong>;
+    }
+    return <React.Fragment key={index}>{part}</React.Fragment>;
+  });
+};
+
+function AssistantMessageContent({ content }: { content: string }) {
+  const blocks = parseMarkdown(content);
+
+  return (
+    <div className="space-y-3 text-left">
+      {blocks.map((block, index) => {
+        if (block.type === 'code') {
+          return (
+            <pre key={index} className="overflow-x-auto rounded-xl bg-slate-950 p-3 text-sm leading-6 text-slate-100">
+              <code>{block.content}</code>
+            </pre>
+          );
+        }
+
+        if (block.type === 'heading') {
+          const headingClass = "font-bold leading-snug text-slate-900";
+          if (block.level === 1) {
+            return <h4 key={index} className={headingClass}>{renderInlineMarkdown(block.content)}</h4>;
+          }
+          if (block.level === 2) {
+            return <h5 key={index} className={headingClass}>{renderInlineMarkdown(block.content)}</h5>;
+          }
+          return <h6 key={index} className={headingClass}>{renderInlineMarkdown(block.content)}</h6>;
+        }
+
+        if (block.type === 'list') {
+          const ListTag = block.ordered ? 'ol' : 'ul';
+          return (
+            <ListTag
+              key={index}
+              className={`space-y-1 pl-5 ${block.ordered ? 'list-decimal' : 'list-disc'}`}
+            >
+              {block.items.map((item, itemIndex) => (
+                <li key={itemIndex}>{renderInlineMarkdown(item)}</li>
+              ))}
+            </ListTag>
+          );
+        }
+
+        return (
+          <p key={index}>
+            {block.lines.map((line, lineIndex) => (
+              <React.Fragment key={lineIndex}>
+                {lineIndex > 0 && <br />}
+                {renderInlineMarkdown(line)}
+              </React.Fragment>
+            ))}
+          </p>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function AIChatPage({ selectedModel, fadeVariants }: AIChatPageProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
@@ -87,7 +252,11 @@ export default function AIChatPage({ selectedModel, fadeVariants }: AIChatPagePr
                     ? 'rounded-3xl rounded-br-md bg-slate-900 text-white'
                     : 'rounded-3xl rounded-bl-md border border-slate-200 bg-white text-slate-800'
                 }`}>
-                  {msg.content}
+                  {msg.role === 'assistant' ? (
+                    <AssistantMessageContent content={msg.content} />
+                  ) : (
+                    <p className="whitespace-pre-wrap">{msg.content}</p>
+                  )}
                 </div>
               </motion.div>
             ))

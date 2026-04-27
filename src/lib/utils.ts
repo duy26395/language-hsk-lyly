@@ -9,7 +9,3 @@ export function segmentChineseText(text: string): string[] {
     return Array.from(text);
   }
 }
-
-export function cn(...classes: (string | undefined | null | false)[]) {
-  return classes.filter(Boolean).join(' ');
-}

@@ -153,7 +153,7 @@ export async function chatNormally(
   model: AIModel = 'gemini',
 ): Promise<string | null> {
   try {
-    const { result } = await postJson<{ result: string | null }>(
+    const { result } = await postJson<{ result: unknown }>(
       '/api/chat',
       {
         message,
@@ -162,11 +162,32 @@ export async function chatNormally(
       },
     );
 
-    return result;
+    return normalizeChatResult(result);
   } catch (error) {
     console.error('Chat API error:', error);
     return null;
   }
+}
+
+function normalizeChatResult(result: unknown): string | null {
+  if (typeof result === 'string') return result;
+  if (result == null) return null;
+  if (Array.isArray(result)) {
+    return result
+      .map((item) => normalizeChatResult(item))
+      .filter((item): item is string => Boolean(item))
+      .join('\n');
+  }
+  if (typeof result === 'object') {
+    const record = result as Record<string, unknown>;
+    const preferredFields = ['content', 'text', 'message', 'response', 'answer', 'output'];
+    for (const field of preferredFields) {
+      const value = normalizeChatResult(record[field]);
+      if (value) return value;
+    }
+    return JSON.stringify(result, null, 2);
+  }
+  return String(result);
 }
 
 export function readAloud(text: string) {
