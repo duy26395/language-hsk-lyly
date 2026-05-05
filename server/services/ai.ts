@@ -136,7 +136,7 @@ export async function explainWord(
   model: AIModel = 'gemini',
 ): Promise<WordExplanation | null> {
   if (model === 'gemini') {
-    const prompt = `Explain the Chinese word "${word}" in the following context: "${contextContext}".
+    const prompt = `Explain the Chinese text (word, phrase, or sentence) "${word}" in the following context: "${contextContext}".
 Important: All explanations (meaning, learningTip, exampleMeaning) MUST be in Vietnamese.
 Provide the response as a JSON object with this exact structure:
 {
@@ -192,7 +192,7 @@ Respond ONLY with the JSON object. Do not include any thinking or reasoning proc
             },
             {
               role: 'user',
-              content: `Explain the Chinese word "${word}" in context: "${contextContext}". JSON Schema: { word: string, pinyin: string, meaning: string (in Vietnamese), meanings: string[], pronunciations: string[], hskLevel: string, learningTip: string (in Vietnamese), usage: string (in Vietnamese), usageExamples: string[], videoLinks: {title: string, url: string}[], example: string (Chinese), examplePinyin: string, exampleMeaning: string (in Vietnamese), synonyms: string, antonyms: string }. Return 1-3 valid https links from YouTube or Bilibili only in videoLinks. Respond ONLY with JSON.`,
+              content: `Explain the Chinese text (word, phrase, or sentence) "${word}" in context: "${contextContext}". JSON Schema: { word: string, pinyin: string, meaning: string (in Vietnamese), meanings: string[], pronunciations: string[], hskLevel: string, learningTip: string (in Vietnamese), usage: string (in Vietnamese), usageExamples: string[], videoLinks: {title: string, url: string}[], example: string (Chinese), examplePinyin: string, exampleMeaning: string (in Vietnamese), synonyms: string, antonyms: string }. Return 1-3 valid https links from YouTube or Bilibili only in videoLinks. Respond ONLY with JSON.`,
             },
           ],
           response_format: { type: 'json_object' },
@@ -222,7 +222,7 @@ Respond ONLY with the JSON object. Do not include any thinking or reasoning proc
       },
       {
         role: 'user',
-        content: `Explain the Chinese word "${word}" in context: "${contextContext}". JSON Schema: { word: string, pinyin: string, meaning: string (in Vietnamese), meanings: string[], pronunciations: string[], hskLevel: string, learningTip: string (in Vietnamese), usage: string (in Vietnamese), usageExamples: string[], videoLinks: {title: string, url: string}[], example: string (Chinese), examplePinyin: string, exampleMeaning: string (in Vietnamese), synonyms: string, antonyms: string }. Return 1-3 valid https links from YouTube or Bilibili only in videoLinks. Do not include reasoning.`,
+        content: `Explain the Chinese text (word, phrase, or sentence) "${word}" in context: "${contextContext}". JSON Schema: { word: string, pinyin: string, meaning: string (in Vietnamese), meanings: string[], pronunciations: string[], hskLevel: string, learningTip: string (in Vietnamese), usage: string (in Vietnamese), usageExamples: string[], videoLinks: {title: string, url: string}[], example: string (Chinese), examplePinyin: string, exampleMeaning: string (in Vietnamese), synonyms: string, antonyms: string }. Return 1-3 valid https links from YouTube or Bilibili only in videoLinks. Do not include reasoning.`,
       },
     ],
     response_format: { type: 'json_object' },

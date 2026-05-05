@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import express from 'express';
+import os from 'node:os';
 import path from 'node:path';
 import fs from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
@@ -15,7 +16,7 @@ app.use(express.json({ limit: '10mb' }));
 
 const requestBuckets = new Map<string, { count: number; resetAt: number }>();
 const RATE_LIMIT_WINDOW_MS = 60_000;
-const RATE_LIMIT_MAX_REQUESTS = 60;
+const RATE_LIMIT_MAX_REQUESTS = 200;
 
 app.use('/api', (req, res, next) => {
   const key = req.ip || 'unknown';
@@ -64,7 +65,7 @@ app.post('/api/explain-word', async (req, res) => {
     }
 
     const result = await explainWord(
-      word.trim().slice(0, 50),
+      word.trim().slice(0, 500),
       context.slice(0, 1000),
       normalizeModel(model),
     );
@@ -274,29 +275,123 @@ app.post('/api/tts', async (req, res) => {
 });
 
 // Vocabulary path logic
+const getLegacyVocDir = () => {
+  try {
+    return path.join(process.cwd(), 'server', 'voc');
+  } catch (e) {
+    return null;
+  }
+};
+
 const getVocDir = () => {
   try {
-    const root = process.cwd();
-    return path.join(root, 'server', 'voc');
+    const customDir = process.env.VOCABULARY_DIR?.trim();
+    if (customDir) {
+      return customDir;
+    }
+
+    return path.join(os.homedir(), '.language-hsk-lyly', 'voc');
   } catch (e) {
-    return '/tmp/voc'; // Fallback for some serverless environments
+    return '/tmp/language-hsk-lyly-voc'; // Fallback for some serverless environments
   }
+};
+
+const getReadableVocDirs = () => {
+  const dirs = [getVocDir(), getLegacyVocDir()].filter(Boolean) as string[];
+  return [...new Set(dirs)];
+};
+
+const loadLatestVocabularyData = async () => {
+  const candidates: Array<{ dir: string; fileName: string }> = [];
+
+  for (const dir of getReadableVocDirs()) {
+    try {
+      const files = await fs.readdir(dir);
+      const jsonFiles = files
+        .filter(f => f.startsWith('vocabulary_') && f.endsWith('.json'))
+        .sort()
+        .reverse();
+
+      if (jsonFiles[0]) {
+        candidates.push({ dir, fileName: jsonFiles[0] });
+      }
+    } catch (e) {}
+  }
+
+  if (candidates.length === 0) {
+    return null;
+  }
+
+  candidates.sort((a, b) => b.fileName.localeCompare(a.fileName));
+  const latest = candidates[0];
+  const content = await fs.readFile(path.join(latest.dir, latest.fileName), 'utf-8');
+  return {
+    data: JSON.parse(content),
+    fileName: latest.fileName,
+  };
+};
+
+const normalizeSavedNotes = (data: any) => {
+  if (Array.isArray(data?.notes)) {
+    return data.notes
+      .filter((item: any) => item && typeof item.content === 'string')
+      .map((item: any, index: number) => ({
+        id: typeof item.id === 'string' ? item.id : `note-${index}`,
+        content: item.content,
+        savedAt: typeof item.savedAt === 'number' ? item.savedAt : Date.now(),
+      }));
+  }
+
+  if (typeof data?.noteContent === 'string' && data.noteContent.trim()) {
+    return [{
+      id: typeof data?.noteSavedAt === 'number' ? `${data.noteSavedAt}` : 'legacy-note',
+      content: data.noteContent,
+      savedAt: typeof data?.noteSavedAt === 'number' ? data.noteSavedAt : Date.now(),
+    }];
+  }
+
+  return [];
 };
 
 app.post('/api/vocabulary', async (req, res) => {
   try {
-    const { words } = req.body;
+    const { words, passages, notes } = req.body as {
+      words?: unknown;
+      passages?: unknown;
+      notes?: unknown;
+    };
     const date = new Date();
     const dateStr = `${date.getDate().toString().padStart(2, '0')}${(date.getMonth() + 1).toString().padStart(2, '0')}${date.getFullYear()}`;
     const vocDir = getVocDir();
-    
-    // Ensure directory exists - wrap in try-catch because Netlify is read-only
-    try { 
-      await fs.mkdir(vocDir, { recursive: true }); 
+    const latestSnapshot = await loadLatestVocabularyData();
+    const previous = latestSnapshot?.data;
+
+    const safeWords = Array.isArray(words) ? words : [];
+    const safePassages = Array.isArray(passages) ? passages : [];
+    const safeNotes = Array.isArray(notes)
+      ? notes
+          .filter((item: any) => item && typeof item.content === 'string')
+          .map((item: any, index: number) => ({
+            id: typeof item.id === 'string' ? item.id : `note-${Date.now()}-${index}`,
+            content: item.content,
+            savedAt: typeof item.savedAt === 'number' ? item.savedAt : Date.now(),
+          }))
+      : normalizeSavedNotes(previous);
+
+    try {
+      await fs.mkdir(vocDir, { recursive: true });
       const fileName = `vocabulary_${dateStr}.json`;
       const filePath = path.join(vocDir, fileName);
-      await fs.writeFile(filePath, JSON.stringify(words, null, 2), 'utf-8');
-      return res.json({ success: true, fileName });
+      await fs.writeFile(
+        filePath,
+        JSON.stringify({
+          words: safeWords,
+          passages: safePassages,
+          notes: safeNotes,
+        }, null, 2),
+        'utf-8'
+      );
+      return res.json({ success: true, fileName, notes: safeNotes });
     } catch (e) {
       console.warn('FileSystem is read-only, vocabulary not saved to disk.');
       return res.json({ success: true, note: 'Saved to session/cloud (Disk is read-only)' });
@@ -309,20 +404,24 @@ app.post('/api/vocabulary', async (req, res) => {
 
 app.get('/api/vocabulary', async (req, res) => {
   try {
-    const vocDir = getVocDir();
-    try { 
-      const files = await fs.readdir(vocDir);
-      const jsonFiles = files.filter(f => f.startsWith('vocabulary_') && f.endsWith('.json')).sort().reverse();
-      
-      if (jsonFiles.length === 0) return res.json({ words: [] });
-      
-      const latestFile = jsonFiles[0];
-      const content = await fs.readFile(path.join(vocDir, latestFile), 'utf-8');
-      const words = JSON.parse(content);
-      return res.json({ words, fileName: latestFile });
-    } catch (e) {
-      return res.json({ words: [] });
+    const latest = await loadLatestVocabularyData();
+
+    if (!latest) {
+      return res.json({ words: [], passages: [], notes: [] });
     }
+    const data = latest.data;
+
+    // Support old format (plain array) and new format ({ words, passages })
+    if (Array.isArray(data)) {
+      return res.json({ words: data, passages: [], notes: [], fileName: latest.fileName });
+    }
+
+    return res.json({
+      words: Array.isArray(data.words) ? data.words : [],
+      passages: Array.isArray(data.passages) ? data.passages : [],
+      notes: normalizeSavedNotes(data),
+      fileName: latest.fileName,
+    });
   } catch (error) {
     console.error('Load vocabulary error:', error);
     return res.status(500).json({ error: 'Failed to load vocabulary.' });

@@ -28,6 +28,20 @@ export interface SavedWordEntry {
   word: string;
   explanation: WordExplanation;
   review?: WordReview;
+  savedAt?: number;
+}
+
+export interface SavedPassageEntry {
+  id: string;
+  text: string;
+  savedAt: number;
+  source?: 'read' | 'create';
+}
+
+export interface SavedNoteEntry {
+  id: string;
+  content: string;
+  savedAt: number;
 }
 
 interface StudyDeckProps {
@@ -164,14 +178,14 @@ export default function StudyDeck({ words, onReview, onOpenNotebook, onOpenReadi
               <AnimatePresence mode="wait">
                 {!isRevealed ? (
                   <motion.div key="front" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="flex flex-col items-center justify-center text-center min-h-[210px]">
-                    <div className="chinese break-words text-5xl font-black tracking-wide text-slate-900 sm:text-6xl md:text-7xl">{currentWord.word}</div>
+                    <div className={`chinese break-words font-black tracking-wide text-slate-900 ${currentWord.word.length > 15 ? 'text-2xl sm:text-3xl md:text-4xl' : 'text-5xl sm:text-6xl md:text-7xl'}`}>{currentWord.word}</div>
                     <p className="mt-5 text-sm font-medium text-slate-400">Think of the pinyin, meaning, and one example before revealing.</p>
                   </motion.div>
                 ) : (
                   <motion.div key="back" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="min-h-[210px]">
                     <div className="flex min-w-0 items-start justify-between gap-3 sm:gap-4">
                       <div className="min-w-0">
-                        <div className="chinese break-words text-4xl font-black text-slate-900 sm:text-5xl">{currentWord.word}</div>
+                        <div className={`chinese break-words font-black text-slate-900 ${currentWord.word.length > 15 ? 'text-2xl sm:text-3xl' : 'text-4xl sm:text-5xl'}`}>{currentWord.word}</div>
                         <p className="mt-2 text-lg font-bold text-violet-600">{currentWord.explanation.pinyin}</p>
                       </div>
                       <button

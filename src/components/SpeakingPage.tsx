@@ -15,7 +15,12 @@ interface SpeakingPageProps {
   fadeVariants: any;
 }
 
-export default function SpeakingPage({ selectedModel, fadeVariants }: SpeakingPageProps) {
+function canUseRealtimeVoice() {
+  if (typeof window === 'undefined') return false;
+  return ['localhost', '127.0.0.1'].includes(window.location.hostname);
+}
+
+export default function SpeakingPage({ selectedModel: _selectedModel, fadeVariants }: SpeakingPageProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isRecording, setIsRecording] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -31,6 +36,7 @@ export default function SpeakingPage({ selectedModel, fadeVariants }: SpeakingPa
   const chatScrollRef = useRef<HTMLDivElement>(null);
   const isPressingRef = useRef(false);
   const isDisposedRef = useRef(false);
+  const realtimeEnabledRef = useRef(canUseRealtimeVoice());
 
   const stopAllAudio = () => {
     audioQueueRef.current = [];
@@ -40,16 +46,21 @@ export default function SpeakingPage({ selectedModel, fadeVariants }: SpeakingPa
   };
 
   useEffect(() => {
-    // Setup Socket.io
-    const socket = io();
+    if (!realtimeEnabledRef.current) {
+      return;
+    }
+
+    const socket = io({
+      transports: ['websocket', 'polling'],
+    });
     socketRef.current = socket;
 
     socket.on('user_text', (data) => {
-      setMessages(prev => [...prev, { role: 'user', content: data.text }]);
+      setMessages((prev) => [...prev, { role: 'user', content: data.text }]);
     });
 
     socket.on('llm_text_chunk', (data) => {
-      setMessages(prev => {
+      setMessages((prev) => {
         const last = prev[prev.length - 1];
         if (last && last.role === 'assistant') {
           return [...prev.slice(0, -1), { ...last, content: last.content + data.chunk }];
@@ -60,7 +71,7 @@ export default function SpeakingPage({ selectedModel, fadeVariants }: SpeakingPa
 
     socket.on('audio_chunk', (data) => {
       audioQueueRef.current.push({ audio: data.audio, mimeType: data.mimeType });
-      processAudioQueue();
+      void processAudioQueue();
     });
 
     socket.on('pipeline_complete', () => {
@@ -75,6 +86,7 @@ export default function SpeakingPage({ selectedModel, fadeVariants }: SpeakingPa
     return () => {
       stopAllAudio();
       socket.disconnect();
+      socketRef.current = null;
     };
   }, []);
 
@@ -145,7 +157,7 @@ export default function SpeakingPage({ selectedModel, fadeVariants }: SpeakingPa
       isPressingRef.current = true;
       setIsRecording(true);
       await recorderRef.current?.start();
-    } catch (error) {
+    } catch {
       isPressingRef.current = false;
       setIsRecording(false);
       setVoiceError('Lỗi khởi động Voice input. Vui lòng thử lại.');
@@ -158,7 +170,7 @@ export default function SpeakingPage({ selectedModel, fadeVariants }: SpeakingPa
       setIsRecording(false);
       return;
     }
-    
+
     isPressingRef.current = false;
     setIsRecording(false);
 
@@ -169,7 +181,7 @@ export default function SpeakingPage({ selectedModel, fadeVariants }: SpeakingPa
         return;
       }
       void processAudioInput(audioBlob);
-    } catch (error) {
+    } catch {
       setVoiceError('Không thể thu âm, vui lòng thử lại.');
     }
   };
@@ -181,39 +193,45 @@ export default function SpeakingPage({ selectedModel, fadeVariants }: SpeakingPa
     stopAllAudio();
 
     try {
-      const arrayBuffer = await audioBlob.arrayBuffer();
-      const base64 = btoa(
-        new Uint8Array(arrayBuffer).reduce((data, byte) => data + String.fromCharCode(byte), ''),
-      );
+      if (realtimeEnabledRef.current && socketRef.current?.connected) {
+        const arrayBuffer = await audioBlob.arrayBuffer();
+        const base64 = btoa(
+          new Uint8Array(arrayBuffer).reduce((data, byte) => data + String.fromCharCode(byte), ''),
+        );
 
-      socketRef.current?.emit('speak', {
-        audio: base64,
-        history: messages,
-        hskLevel,
-        ttsVoice,
-        fileName: audioBlob.type.includes('webm') ? 'audio.webm' : 'audio.wav'
-      });
-
-      if (!socketRef.current?.connected) {
-        const result = await speakToTeacher(audioBlob, messages, hskLevel, ttsVoice);
-        if (isDisposedRef.current) return;
-        if (!result) {
-          setVoiceError('Không xử lý được âm thanh. Vui lòng thử lại.');
-          setLoading(false);
-          return;
-        }
-        setMessages(prev => [
-          ...prev,
-          { role: 'user', content: result.userText },
-          { role: 'assistant', content: result.assistantText },
-        ]);
-        await audioPlayerRef.current.playBase64(result.audio, result.mimeType);
-        if (isDisposedRef.current) return;
-        setLoading(false);
+        socketRef.current.emit('speak', {
+          audio: base64,
+          history: messages,
+          hskLevel,
+          ttsVoice,
+          fileName: audioBlob.type.includes('webm') ? 'audio.webm' : 'audio.wav',
+        });
+        return;
       }
-    } catch (e: any) {
+
+      const result = await speakToTeacher(audioBlob, messages, hskLevel, ttsVoice);
+      if (isDisposedRef.current) return;
+      if (!result) {
+        setVoiceError('Không xử lý được âm thanh. Vui lòng thử lại.');
+        setLoading(false);
+        return;
+      }
+
+      setMessages((prev) => [
+        ...prev,
+        { role: 'user', content: result.userText },
+        { role: 'assistant', content: result.assistantText },
+      ]);
+      await audioPlayerRef.current.playBase64(result.audio, result.mimeType);
+      if (isDisposedRef.current) return;
+      setLoading(false);
+    } catch (e) {
       console.error(e);
-      setVoiceError('Lỗi kết nối real-time.');
+      setVoiceError(
+        realtimeEnabledRef.current
+          ? 'Lỗi kết nối real-time.'
+          : 'Không xử lý được âm thanh. Vui lòng thử lại.',
+      );
       setLoading(false);
     }
   };
@@ -221,14 +239,12 @@ export default function SpeakingPage({ selectedModel, fadeVariants }: SpeakingPa
   const handleReadAloud = async (text: string) => {
     try {
       setVoiceError('');
-      // Try to get high quality TTS from backend
       const ttsResult = await textToSpeech(text, ttsVoice);
       if (isDisposedRef.current) return;
       if (ttsResult) {
         stopAllAudio();
         await audioPlayerRef.current.playBase64(ttsResult.audio, ttsResult.mimeType);
       } else {
-        // Fallback to browser TTS
         if (!window.speechSynthesis) return;
         window.speechSynthesis.cancel();
         const utterance = new SpeechSynthesisUtterance(text);
@@ -265,7 +281,9 @@ export default function SpeakingPage({ selectedModel, fadeVariants }: SpeakingPa
             aria-label="HSK level"
           >
             {[1, 2, 3, 4, 5, 6].map((level) => (
-              <option key={level} value={`HSK ${level}`}>HSK {level}</option>
+              <option key={level} value={`HSK ${level}`}>
+                HSK {level}
+              </option>
             ))}
           </select>
           <select
@@ -283,13 +301,13 @@ export default function SpeakingPage({ selectedModel, fadeVariants }: SpeakingPa
             className="shrink-0 rounded-xl p-2 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-500"
             aria-label="Reset session"
           >
-            <RotateCcw className="w-4 h-4 md:w-5 md:h-5" />
+            <RotateCcw className="h-4 w-4 md:h-5 md:w-5" />
           </button>
         </div>
       </div>
 
-      <div className="flex-1 min-h-0 bg-white/65 backdrop-blur-md rounded-[1.25rem] md:rounded-[2rem] border border-violet-50 shadow-inner overflow-hidden flex flex-col">
-        <div ref={chatScrollRef} className="flex-1 min-h-0 overflow-y-auto no-scrollbar p-3 md:p-4">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[1.25rem] border border-violet-50 bg-white/65 shadow-inner backdrop-blur-md md:rounded-[2rem]">
+        <div ref={chatScrollRef} className="no-scrollbar flex-1 min-h-0 overflow-y-auto p-3 md:p-4">
           <div className="min-w-0 space-y-2">
             {messages.map((message, index) => (
               <div
@@ -297,52 +315,52 @@ export default function SpeakingPage({ selectedModel, fadeVariants }: SpeakingPa
                 className={`flex items-start gap-2 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
               >
                 {message.role === 'assistant' && (
-                  <div className="h-7 w-7 rounded-full bg-violet-100 text-violet-600 flex items-center justify-center shrink-0 mt-0.5">
-                    <Bot className="w-4 h-4" />
+                  <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-violet-100 text-violet-600">
+                    <Bot className="h-4 w-4" />
                   </div>
                 )}
 
                 <div
-                  className={`group max-w-[86%] md:max-w-[80%] rounded-2xl px-3 py-2 text-left shadow-sm ${
+                  className={`group max-w-[86%] break-words rounded-2xl px-3 py-2 text-left shadow-sm md:max-w-[80%] ${
                     message.role === 'user'
-                      ? 'bg-slate-800 text-white rounded-br-md'
-                      : 'bg-white text-slate-700 border border-violet-100 rounded-bl-md'
-                  } break-words`}
+                      ? 'rounded-br-md bg-slate-800 text-white'
+                      : 'rounded-bl-md border border-violet-100 bg-white text-slate-700'
+                  }`}
                 >
-                  <p className="text-sm md:text-base mb-1">{message.content}</p>
+                  <p className="mb-1 text-sm md:text-base">{message.content}</p>
                   <button
                     type="button"
                     onClick={() => handleReadAloud(message.content)}
                     className={`mt-1 inline-flex h-7 w-7 items-center justify-center rounded-full transition-colors ${
                       message.role === 'user'
-                        ? 'text-white/75 hover:text-white hover:bg-white/10'
-                        : 'text-violet-500 hover:text-violet-700 hover:bg-violet-50'
+                        ? 'text-white/75 hover:bg-white/10 hover:text-white'
+                        : 'text-violet-500 hover:bg-violet-50 hover:text-violet-700'
                     }`}
                     title="Nghe lại đoạn này"
                     aria-label={`Nghe lại đoạn ${index + 1}`}
                   >
-                    <Volume2 className="w-4 h-4" />
+                    <Volume2 className="h-4 w-4" />
                   </button>
                 </div>
 
                 {message.role === 'user' && (
-                  <div className="h-7 w-7 rounded-full bg-slate-800 text-white flex items-center justify-center shrink-0 mt-0.5">
-                    <User className="w-4 h-4" />
+                  <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-800 text-white">
+                    <User className="h-4 w-4" />
                   </div>
                 )}
               </div>
             ))}
-            
+
             {loading && (
-              <div className="flex items-start gap-2 justify-start">
-                <div className="h-7 w-7 rounded-full bg-violet-100 text-violet-600 flex items-center justify-center shrink-0 mt-0.5">
-                  <Bot className="w-4 h-4" />
+              <div className="flex items-start justify-start gap-2">
+                <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-violet-100 text-violet-600">
+                  <Bot className="h-4 w-4" />
                 </div>
-                <div className="bg-white text-slate-700 border border-violet-100 rounded-2xl rounded-bl-md px-4 py-3 shadow-sm">
-                  <div className="flex items-center gap-1.5 h-6">
-                    <div className="w-2 h-2 rounded-full bg-violet-400 animate-bounce" style={{ animationDelay: '0ms' }} />
-                    <div className="w-2 h-2 rounded-full bg-violet-400 animate-bounce" style={{ animationDelay: '150ms' }} />
-                    <div className="w-2 h-2 rounded-full bg-violet-400 animate-bounce" style={{ animationDelay: '300ms' }} />
+                <div className="rounded-2xl rounded-bl-md border border-violet-100 bg-white px-4 py-3 text-slate-700 shadow-sm">
+                  <div className="flex h-6 items-center gap-1.5">
+                    <div className="h-2 w-2 animate-bounce rounded-full bg-violet-400" style={{ animationDelay: '0ms' }} />
+                    <div className="h-2 w-2 animate-bounce rounded-full bg-violet-400" style={{ animationDelay: '150ms' }} />
+                    <div className="h-2 w-2 animate-bounce rounded-full bg-violet-400" style={{ animationDelay: '300ms' }} />
                   </div>
                 </div>
               </div>
@@ -368,25 +386,25 @@ export default function SpeakingPage({ selectedModel, fadeVariants }: SpeakingPa
               }}
               onPointerCancel={() => void stopPressRecording()}
               disabled={loading}
-              className={`flex h-20 w-20 md:h-24 md:w-24 shrink-0 touch-none select-none items-center justify-center rounded-full transition-all active:scale-95 shadow-lg ${
+              className={`flex h-20 w-20 shrink-0 touch-none select-none items-center justify-center rounded-full shadow-lg transition-all active:scale-95 md:h-24 md:w-24 ${
                 isRecording
                   ? 'bg-red-500 text-white'
                   : 'bg-violet-600 text-white hover:bg-violet-700 disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none'
               }`}
               aria-label={isRecording ? 'Stop recording' : 'Start voice input'}
             >
-              {isRecording ? <MicOff className="w-8 h-8 md:w-10 md:h-10" /> : <Mic className="w-8 h-8 md:w-10 md:h-10" />}
+              {isRecording ? <MicOff className="h-8 w-8 md:h-10 md:w-10" /> : <Mic className="h-8 w-8 md:h-10 md:w-10" />}
             </button>
 
             {isRecording && (
-              <div className="flex items-end gap-1.5 h-7" aria-label="Đang nghe giọng nói">
+              <div className="flex h-7 items-end gap-1.5" aria-label="Đang nghe giọng nói">
                 {[0, 1, 2, 3, 4].map((bar) => (
                   <div
                     key={`recording-bar-${bar}`}
-                    className="w-1.5 rounded-full bg-red-400 animate-pulse"
+                    className="w-1.5 animate-pulse rounded-full bg-red-400"
                     style={{
-                      height: `${12 + ((bar % 3) * 5)}px`,
-                      animationDuration: `${0.5 + (bar % 3) * 0.2}s`
+                      height: `${12 + (bar % 3) * 5}px`,
+                      animationDuration: `${0.5 + (bar % 3) * 0.2}s`,
                     }}
                   />
                 ))}
@@ -396,11 +414,7 @@ export default function SpeakingPage({ selectedModel, fadeVariants }: SpeakingPa
         </div>
       </div>
 
-      {voiceError && (
-        <p className="text-[11px] text-red-500 mt-2 text-center font-semibold">
-          {voiceError}
-        </p>
-      )}
+      {voiceError && <p className="mt-2 text-center text-[11px] font-semibold text-red-500">{voiceError}</p>}
     </motion.div>
   );
 }

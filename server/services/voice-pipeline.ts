@@ -2,8 +2,6 @@ import OpenAI from 'openai';
 import Groq from 'groq-sdk';
 import { synthesizeChineseSpeech } from './tts-provider';
 
-// ─── Groq client singletons ───────────────────────────────────────────────────
-
 let groqClient: Groq | null = null;
 let groqOpenAI: OpenAI | null = null;
 
@@ -28,14 +26,8 @@ function getGroqOpenAI(): OpenAI {
   return groqOpenAI;
 }
 
-// ─── STT: Groq Whisper ────────────────────────────────────────────────────────
-
 const WHISPER_MODEL = 'whisper-large-v3-turbo';
 
-/**
- * Transcribe audio buffer to text using Groq Whisper.
- * Accepts raw audio bytes (wav/webm/ogg/mp3) and returns the transcribed text.
- */
 export async function transcribeAudio(
   audioBuffer: Buffer,
   language: string = 'zh',
@@ -43,7 +35,6 @@ export async function transcribeAudio(
 ): Promise<string> {
   const client = getGroqClient();
 
-  // Create a File-like object from the buffer for the SDK
   const file = new File([audioBuffer], fileName, {
     type: getMimeType(fileName),
   });
@@ -56,14 +47,9 @@ export async function transcribeAudio(
     temperature: 0.0,
   });
 
-  // response_format: 'text' returns a plain string
   const result: any = transcription;
-  return typeof result === 'string'
-    ? result.trim()
-    : result?.text?.trim() || '';
+  return typeof result === 'string' ? result.trim() : result?.text?.trim() || '';
 }
-
-// ─── LLM: Groq Chat ──────────────────────────────────────────────────────────
 
 const LLM_MODELS = [
   'qwen/qwen3-32b',
@@ -78,10 +64,6 @@ interface ChatMessage {
   content: string;
 }
 
-/**
- * Chat with the Chinese teacher via Groq LLM.
- * Tries multiple models in priority order for resilience.
- */
 export async function chatWithGroq(
   userMessage: string,
   history: { role: 'user' | 'assistant'; content: string }[],
@@ -127,35 +109,22 @@ Return only the final teacher reply in Chinese.`;
   return null;
 }
 
-// ─── TTS: Microsoft Edge TTS (Free Neural Voices) ─────────────────────────────
-
-
-// ─── Full Pipeline: Audio → Text → LLM → Audio ───────────────────────────────
-
 export interface SpeakPipelineResult {
-  /** The user's speech transcribed to text */
   userText: string;
-  /** The AI teacher's reply text */
   assistantText: string;
-  /** The AI teacher's reply as audio */
   audioBuffer: Buffer;
   mimeType: string;
   ttsProvider: string;
 }
 
-/**
- * Streaming version of the voice pipeline for WebSockets.
- * Emits events via onEvent callback as data becomes available.
- */
 export async function runSpeakPipelineStream(
   audioBuffer: Buffer,
   history: { role: 'user' | 'assistant'; content: string }[],
   hskLevel: string,
   fileName: string = 'audio.webm',
   ttsVoice: string = 'zh-CN-XiaoxiaoNeural',
-  onEvent: (event: string, payload: any) => void
+  onEvent: (event: string, payload: any) => void,
 ): Promise<void> {
-  // 1. Transcribe (Wait for full audio since Whisper is file-based)
   onEvent('processing_stt', {});
   const userText = await transcribeAudio(audioBuffer, 'zh', fileName);
   if (!userText) {
@@ -164,7 +133,6 @@ export async function runSpeakPipelineStream(
   }
   onEvent('user_text', { text: userText });
 
-  // 2. Stream LLM and TTS
   onEvent('processing_llm', {});
   const systemPrompt = `You are a Chinese teacher for HSK learners.
 Strict output policy:
@@ -216,7 +184,6 @@ Return only the final teacher reply in Chinese.`;
     fullResponse += content;
     sentenceBuffer += content;
 
-    // Detect sentence end for immediate TTS.
     if (/[。！？.!?]/.test(content)) {
       const sentence = sentenceBuffer.trim();
       sentenceBuffer = '';
@@ -230,7 +197,7 @@ Return only the final teacher reply in Chinese.`;
 
   try {
     const stream = await client.chat.completions.create({
-      model: LLM_MODELS[0], // Use primary model for streaming
+      model: LLM_MODELS[0],
       messages,
       max_tokens: 400,
       stream: true,
@@ -239,16 +206,13 @@ Return only the final teacher reply in Chinese.`;
     for await (const chunk of stream) {
       const content = chunk.choices[0]?.delta?.content || '';
       if (!content) continue;
-
       handleVisibleContent(thinkFilter.push(content));
     }
 
     handleVisibleContent(thinkFilter.flush());
 
-    // Finalize any remaining text
     if (sentenceBuffer.trim()) {
-      const finalSentence = sentenceBuffer.trim();
-      enqueueTts(finalSentence);
+      enqueueTts(sentenceBuffer.trim());
     }
 
     await ttsQueue;
@@ -265,23 +229,20 @@ export async function runSpeakPipeline(
   history: { role: 'user' | 'assistant'; content: string }[],
   hskLevel: string,
   fileName: string = 'audio.webm',
-  ttsVoice: string = 'zh-CN-XiaoxiaoNeural'
+  ttsVoice: string = 'zh-CN-XiaoxiaoNeural',
 ): Promise<SpeakPipelineResult | null> {
-  // Step 1: Speech-to-Text
   const userText = await transcribeAudio(audioBuffer, 'zh', fileName);
   if (!userText) {
     console.warn('STT returned empty transcription');
     return null;
   }
 
-  // Step 2: LLM response
   const assistantText = await chatWithGroq(userText, history, hskLevel);
   if (!assistantText) {
     console.warn('LLM returned empty response');
     return null;
   }
 
-  // Step 3: Text-to-Speech
   const resultAudio = await synthesizeChineseSpeech(assistantText, ttsVoice);
 
   return {
@@ -292,8 +253,6 @@ export async function runSpeakPipeline(
     ttsProvider: resultAudio.provider,
   };
 }
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function getMimeType(fileName: string): string {
   const ext = fileName.split('.').pop()?.toLowerCase();
@@ -330,7 +289,7 @@ function createThinkTagFilter() {
         if (inThink) {
           const closeIndex = lower.indexOf('</think>', index);
           if (closeIndex === -1) {
-            pending = pending.slice(-('</think'.length));
+            pending = pending.slice(-'</think'.length);
             return output;
           }
 

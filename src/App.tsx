@@ -1,12 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import QuizWizard from './components/QuizWizard';
-import StudyDeck, { ReviewGrade, SavedWordEntry, WordReview } from './components/StudyDeck';
+import StudyDeck, {
+  ReviewGrade,
+  SavedNoteEntry,
+  SavedPassageEntry,
+  SavedWordEntry,
+  WordReview,
+} from './components/StudyDeck';
 import { WordExplanation, AIModel } from './lib/ai';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Variants } from 'framer-motion';
 import { Mic, ShieldCheck, Smartphone, X } from 'lucide-react';
 
-// New Components
 import Sidebar from './components/Sidebar';
 import SettingsModal from './components/SettingsModal';
 import ReadPage from './components/ReadPage';
@@ -29,13 +34,17 @@ const createInitialReview = (): WordReview => ({
 
 const normalizeSavedWord = (item: SavedWordEntry): SavedWordEntry => ({
   ...item,
+  savedAt: item.savedAt,
   review: {
     ...createInitialReview(),
     ...item.review,
   },
 });
 
-const scheduleReview = (currentReview: WordReview | undefined, grade: ReviewGrade): WordReview => {
+const scheduleReview = (
+  currentReview: WordReview | undefined,
+  grade: ReviewGrade,
+): WordReview => {
   const now = Date.now();
   const review = { ...createInitialReview(), ...currentReview };
   const ease = review.ease || 2.5;
@@ -83,48 +92,51 @@ const scheduleReview = (currentReview: WordReview | undefined, grade: ReviewGrad
   };
 };
 
-const formatReviewDue = (dueAt: number) => {
-  const diff = dueAt - Date.now();
-  if (diff <= 0) return 'Due now';
-  const minutes = Math.ceil(diff / 60000);
-  if (minutes < 60) return `${minutes} min`;
-  const hours = Math.ceil(minutes / 60);
-  if (hours < 24) return `${hours} hr`;
-  return `${Math.ceil(hours / 24)} day`;
-};
-
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'search' | 'read' | 'create' | 'study' | 'quiz' | 'notebook' | 'speaking' | 'chat'>('search');
+  const [activeTab, setActiveTab] = useState<
+    'search' | 'read' | 'create' | 'study' | 'quiz' | 'notebook' | 'speaking' | 'chat'
+  >('search');
   const [selectedModel, setSelectedModel] = useState<AIModel>('qwen/qwen3-32b');
   const [showSettings, setShowSettings] = useState(false);
   const [showVoiceNotice, setShowVoiceNotice] = useState(false);
-  
-  // Tab State
+
   const [readInput, setReadInput] = useState('');
   const [readText, setReadText] = useState('');
   const [createWords, setCreateWords] = useState('');
   const [hskLevel, setHskLevel] = useState('HSK 3');
   const [createdText, setCreatedText] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
-  
-  // Global App State
+
   const [noteContent, setNoteContent] = useState('');
+  const [savedNotes, setSavedNotes] = useState<SavedNoteEntry[]>([]);
   const [savedWords, setSavedWords] = useState<SavedWordEntry[]>([]);
+  const [savedPassages, setSavedPassages] = useState<SavedPassageEntry[]>([]);
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastSynced, setLastSynced] = useState<number | null>(null);
+  const isHydratingNotebook = useRef(true);
 
-  // Sync Logic
-  const saveToServer = async (words: SavedWordEntry[]) => {
-    if (words.length === 0) return;
+  const saveToServer = async (
+    words: SavedWordEntry[],
+    passages?: SavedPassageEntry[],
+    notes?: SavedNoteEntry[],
+  ) => {
     setIsSyncing(true);
     try {
-      await fetch('/api/vocabulary', {
+      const response = await fetch('/api/vocabulary', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ words }),
+        body: JSON.stringify({
+          words,
+          passages: passages ?? [],
+          ...(notes ? { notes } : {}),
+        }),
       });
+      const data = await response.json();
+      if (Array.isArray(data.notes) && response.ok) {
+        setSavedNotes(data.notes as SavedNoteEntry[]);
+      }
       setLastSynced(Date.now());
-    } catch (e) {
+    } catch {
       console.error('Sync to server failed');
     } finally {
       setTimeout(() => setIsSyncing(false), 1000);
@@ -132,39 +144,72 @@ export default function App() {
   };
 
   useEffect(() => {
-    const savedNotes = localStorage.getItem('chinese-notes');
-    if (savedNotes) setNoteContent(savedNotes);
-
     const loadData = async () => {
       try {
         const res = await fetch('/api/vocabulary');
         const data = await res.json();
+        if (Array.isArray(data.notes) && data.notes.length > 0) {
+          setSavedNotes(data.notes as SavedNoteEntry[]);
+        }
+        const savedNotesDraft = localStorage.getItem('chinese-notes');
+        if (savedNotesDraft) {
+          setNoteContent(savedNotesDraft);
+        }
         if (data.words && data.words.length > 0) {
           setSavedWords(data.words.map(normalizeSavedWord));
+        } else {
+          const savedWordsStr = localStorage.getItem('chinese-saved-words');
+          if (savedWordsStr) {
+            try {
+              const parsed = JSON.parse(savedWordsStr) as SavedWordEntry[];
+              setSavedWords(parsed.map(normalizeSavedWord));
+            } catch {}
+          }
+        }
+        if (data.passages && data.passages.length > 0) {
+          setSavedPassages(data.passages as SavedPassageEntry[]);
           return;
         }
-      } catch (e) {}
+      } catch {
+        const savedNotesDraft = localStorage.getItem('chinese-notes');
+        if (savedNotesDraft) setNoteContent(savedNotesDraft);
+        const savedWordsStr = localStorage.getItem('chinese-saved-words');
+        if (savedWordsStr) {
+          try {
+            const parsed = JSON.parse(savedWordsStr) as SavedWordEntry[];
+            setSavedWords(parsed.map(normalizeSavedWord));
+          } catch {}
+        }
+      }
 
-      const savedWordsStr = localStorage.getItem('chinese-saved-words');
-      if (savedWordsStr) {
+      const savedPassagesStr = localStorage.getItem('chinese-saved-passages');
+      if (savedPassagesStr) {
         try {
-          const parsed = JSON.parse(savedWordsStr) as SavedWordEntry[];
-          setSavedWords(parsed.map(normalizeSavedWord));
-        } catch (e) {}
+          setSavedPassages(JSON.parse(savedPassagesStr) as SavedPassageEntry[]);
+        } catch {}
       }
     };
-    loadData();
+
+    loadData().finally(() => {
+      isHydratingNotebook.current = false;
+    });
   }, []);
 
   useEffect(() => {
     localStorage.setItem('chinese-notes', noteContent);
+  }, [noteContent]);
+
+  useEffect(() => {
     localStorage.setItem('chinese-saved-words', JSON.stringify(savedWords));
-    
-    if (savedWords.length > 0) {
-      const timeoutId = setTimeout(() => saveToServer(savedWords), 1500);
-      return () => clearTimeout(timeoutId);
+    localStorage.setItem('chinese-saved-passages', JSON.stringify(savedPassages));
+
+    if (isHydratingNotebook.current) {
+      return;
     }
-  }, [noteContent, savedWords]);
+
+    const timeoutId = setTimeout(() => saveToServer(savedWords, savedPassages), 2000);
+    return () => clearTimeout(timeoutId);
+  }, [savedWords, savedPassages]);
 
   useEffect(() => {
     if (window.speechSynthesis) window.speechSynthesis.cancel();
@@ -177,7 +222,6 @@ export default function App() {
     }
   }, []);
 
-  // Event Handlers
   const handleSetActiveTab = (tab: typeof activeTab) => {
     setActiveTab(tab);
   };
@@ -194,13 +238,49 @@ export default function App() {
   };
 
   const handleAddToNotebook = (word: string, explanation: WordExplanation) => {
-    if (!savedWords.find(w => w.word === word)) {
-      setSavedWords([...savedWords, { word, explanation, review: createInitialReview() }]);
+    if (!savedWords.find((w) => w.word === word)) {
+      setSavedWords([
+        ...savedWords,
+        { word, explanation, review: createInitialReview(), savedAt: Date.now() },
+      ]);
     }
   };
 
   const handleRemoveWord = (word: string) => {
-    setSavedWords(savedWords.filter(w => w.word !== word));
+    setSavedWords(savedWords.filter((w) => w.word !== word));
+  };
+
+  const handleSavePassage = (text: string, source: 'read' | 'create' = 'read') => {
+    const trimmed = text.trim();
+    if (!trimmed) return;
+    if (savedPassages.find((p) => p.text === trimmed)) return;
+    setSavedPassages((prev) => [
+      { id: Date.now().toString(), text: trimmed, savedAt: Date.now(), source },
+      ...prev,
+    ]);
+  };
+
+  const handleRemovePassage = (id: string) => {
+    setSavedPassages((prev) => prev.filter((p) => p.id !== id));
+  };
+
+  const handleSaveNotes = async () => {
+    const trimmed = noteContent.trim();
+    if (!trimmed) return;
+    const now = Date.now();
+    const nextNotes: SavedNoteEntry[] = [
+      { id: now.toString(), content: trimmed, savedAt: now },
+      ...savedNotes,
+    ];
+    await saveToServer(savedWords, savedPassages, nextNotes);
+    setNoteContent('');
+    localStorage.removeItem('chinese-notes');
+  };
+
+  const handleRemoveSavedNote = async (id: string) => {
+    const nextNotes = savedNotes.filter((item) => item.id !== id);
+    setSavedNotes(nextNotes);
+    await saveToServer(savedWords, savedPassages, nextNotes);
   };
 
   const handleReviewWord = (word: string, grade: ReviewGrade) => {
@@ -215,34 +295,45 @@ export default function App() {
 
   const fadeVariants: Variants = {
     hidden: { opacity: 0, y: 18, scale: 0.985, filter: 'blur(6px)' },
-    visible: { opacity: 1, y: 0, scale: 1, filter: 'blur(0px)', transition: { duration: 0.45, ease: softEase } },
-    exit: { opacity: 0, y: -10, scale: 0.99, filter: 'blur(4px)', transition: { duration: 0.22, ease: 'easeInOut' } }
+    visible: {
+      opacity: 1,
+      y: 0,
+      scale: 1,
+      filter: 'blur(0px)',
+      transition: { duration: 0.45, ease: softEase },
+    },
+    exit: {
+      opacity: 0,
+      y: -10,
+      scale: 0.99,
+      filter: 'blur(4px)',
+      transition: { duration: 0.22, ease: 'easeInOut' },
+    },
   };
 
   return (
     <div className="relative flex h-dvh min-h-dvh w-full min-w-0 flex-col overflow-hidden bg-[#fbfaff] font-sans text-slate-800 md:flex-row">
       <div className="app-background" />
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/10 via-transparent to-white/20" />
-      
-      <Sidebar 
-        activeTab={activeTab} 
-        setActiveTab={handleSetActiveTab} 
-        showSettings={showSettings} 
-        setShowSettings={setShowSettings} 
+
+      <Sidebar
+        activeTab={activeTab}
+        setActiveTab={handleSetActiveTab}
+        showSettings={showSettings}
+        setShowSettings={setShowSettings}
       />
 
-      <SettingsModal 
-        showSettings={showSettings} 
-        setShowSettings={setShowSettings} 
-        selectedModel={selectedModel} 
-        setSelectedModel={setSelectedModel} 
+      <SettingsModal
+        showSettings={showSettings}
+        setShowSettings={setShowSettings}
+        selectedModel={selectedModel}
+        setSelectedModel={setSelectedModel}
       />
 
       <main className="relative min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto bg-transparent scroll-smooth">
         <AnimatePresence mode="wait">
-          
           {activeTab === 'search' && (
-            <SearchPage 
+            <SearchPage
               selectedModel={selectedModel}
               onAddToNotebook={handleAddToNotebook}
               fadeVariants={fadeVariants}
@@ -250,37 +341,39 @@ export default function App() {
           )}
 
           {activeTab === 'read' && (
-            <ReadPage 
-              readInput={readInput} setReadInput={setReadInput}
-              readText={readText} setReadText={setReadText}
+            <ReadPage
+              readInput={readInput}
+              setReadInput={setReadInput}
+              readText={readText}
+              setReadText={setReadText}
               selectedModel={selectedModel}
               onAddToNotebook={handleAddToNotebook}
+              onSavePassage={(text) => handleSavePassage(text, 'read')}
               fadeVariants={fadeVariants}
             />
           )}
 
           {activeTab === 'speaking' && (
-            <SpeakingPage 
-              selectedModel={selectedModel}
-              fadeVariants={fadeVariants}
-            />
+            <SpeakingPage selectedModel={selectedModel} fadeVariants={fadeVariants} />
           )}
 
           {activeTab === 'chat' && (
-            <AIChatPage
-              selectedModel={selectedModel}
-              fadeVariants={fadeVariants}
-            />
+            <AIChatPage selectedModel={selectedModel} fadeVariants={fadeVariants} />
           )}
 
           {activeTab === 'create' && (
-            <CreatePage 
-              createWords={createWords} setCreateWords={setCreateWords}
-              hskLevel={hskLevel} setHskLevel={setHskLevel}
-              createdText={createdText} setCreatedText={setCreatedText}
-              isGenerating={isGenerating} setIsGenerating={setIsGenerating}
+            <CreatePage
+              createWords={createWords}
+              setCreateWords={setCreateWords}
+              hskLevel={hskLevel}
+              setHskLevel={setHskLevel}
+              createdText={createdText}
+              setCreatedText={setCreatedText}
+              isGenerating={isGenerating}
+              setIsGenerating={setIsGenerating}
               selectedModel={selectedModel}
               onAddToNotebook={handleAddToNotebook}
+              onSavePassage={(text) => handleSavePassage(text, 'create')}
               onOpenReading={(text) => {
                 setReadInput(text);
                 setReadText(text);
@@ -291,11 +384,22 @@ export default function App() {
           )}
 
           {activeTab === 'study' && (
-            <motion.div key="study" variants={fadeVariants} initial="hidden" animate="visible" exit="exit" className="mx-auto flex min-h-full w-full max-w-5xl flex-col gap-5 p-4 sm:p-5 md:gap-6 md:p-10">
+            <motion.div
+              key="study"
+              variants={fadeVariants}
+              initial="hidden"
+              animate="visible"
+              exit="exit"
+              className="mx-auto flex min-h-full w-full max-w-5xl flex-col gap-5 p-4 sm:p-5 md:gap-6 md:p-10"
+            >
               <div className="flex flex-col gap-3 print:hidden sm:flex-row sm:items-center sm:justify-between">
                 <div className="min-w-0">
-                  <h1 className="text-2xl md:text-3xl font-bold text-slate-800 tracking-tight">Daily Study</h1>
-                  <p className="mt-1 text-sm text-slate-500">Review saved words with lightweight spaced repetition.</p>
+                  <h1 className="text-2xl font-bold tracking-tight text-slate-800 md:text-3xl">
+                    Daily Study
+                  </h1>
+                  <p className="mt-1 text-sm text-slate-500">
+                    Review saved words with lightweight spaced repetition.
+                  </p>
                 </div>
               </div>
               <StudyDeck
@@ -308,28 +412,46 @@ export default function App() {
           )}
 
           {activeTab === 'quiz' && (
-            <motion.div key="quiz" variants={fadeVariants} initial="hidden" animate="visible" exit="exit" className="mx-auto flex min-h-full w-full max-w-4xl flex-col gap-5 p-4 sm:p-5 md:gap-6 md:p-10">
-               <div className="flex flex-col gap-3 print:hidden sm:flex-row sm:items-center sm:justify-between">
-                <h1 className="text-2xl md:text-3xl font-bold text-slate-800 tracking-tight">HSK Practice</h1>
+            <motion.div
+              key="quiz"
+              variants={fadeVariants}
+              initial="hidden"
+              animate="visible"
+              exit="exit"
+              className="mx-auto flex min-h-full w-full max-w-4xl flex-col gap-5 p-4 sm:p-5 md:gap-6 md:p-10"
+            >
+              <div className="flex flex-col gap-3 print:hidden sm:flex-row sm:items-center sm:justify-between">
+                <h1 className="text-2xl font-bold tracking-tight text-slate-800 md:text-3xl">
+                  HSK Practice
+                </h1>
               </div>
               <QuizWizard selectedModel={selectedModel} />
             </motion.div>
           )}
 
           {activeTab === 'notebook' && (
-            <NotebookPage 
-              noteContent={noteContent} setNoteContent={setNoteContent}
+            <NotebookPage
+              noteContent={noteContent}
+              setNoteContent={setNoteContent}
+              savedNotes={savedNotes}
+              handleRemoveSavedNote={handleRemoveSavedNote}
               savedWords={savedWords}
               handleRemoveWord={handleRemoveWord}
+              savedPassages={savedPassages}
+              handleRemovePassage={handleRemovePassage}
+              onOpenPassage={(text) => {
+                setReadInput(text);
+                setReadText(text);
+                setActiveTab('read');
+              }}
               isSyncing={isSyncing}
               lastSynced={lastSynced}
               saveToServer={saveToServer}
+              onSaveNotes={handleSaveNotes}
               handlePrint={() => window.print()}
-              formatReviewDue={formatReviewDue}
               fadeVariants={fadeVariants}
             />
           )}
-
         </AnimatePresence>
       </main>
 
@@ -355,8 +477,12 @@ export default function App() {
                     <Mic className="h-5 w-5 sm:h-6 sm:w-6" />
                   </div>
                   <div className="min-w-0">
-                    <h2 className="text-lg font-bold leading-snug text-slate-800 sm:text-xl">Bật voice trên mobile</h2>
-                    <p className="text-sm text-slate-500">Một vài lưu ý trước khi luyện nói.</p>
+                    <h2 className="text-lg font-bold leading-snug text-slate-800 sm:text-xl">
+                      Bật voice trên mobile
+                    </h2>
+                    <p className="text-sm text-slate-500">
+                      Một vài lưu ý trước khi luyện nói.
+                    </p>
                   </div>
                 </div>
                 <button
@@ -373,13 +499,15 @@ export default function App() {
                 <div className="flex gap-3 rounded-2xl bg-violet-50/80 p-3 sm:p-4">
                   <Smartphone className="mt-0.5 h-5 w-5 shrink-0 text-violet-600" />
                   <p className="text-sm leading-relaxed text-slate-700">
-                    Voice input dùng Web Speech API, nên trên mobile nên mở bằng Chrome hoặc Edge để ổn định hơn.
+                    Voice input dùng Web Speech API, nên trên mobile nên mở bằng Chrome
+                    hoặc Edge để ổn định hơn.
                   </p>
                 </div>
                 <div className="flex gap-3 rounded-2xl bg-emerald-50 p-3 sm:p-4">
                   <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" />
                   <p className="text-sm leading-relaxed text-slate-700">
-                    Khi trình duyệt hỏi quyền, hãy chọn Allow microphone. Nếu từng chặn quyền, cần bật lại trong site settings.
+                    Khi trình duyệt hỏi quyền, hãy chọn Allow microphone. Nếu từng chặn
+                    quyền, cần bật lại trong site settings.
                   </p>
                 </div>
               </div>
