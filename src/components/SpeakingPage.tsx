@@ -261,7 +261,16 @@ export default function SpeakingPage({ selectedModel, fadeVariants }: SpeakingPa
   };
 
   const handleTranslate = async (messageKey: string, text: string) => {
-    if (translations[messageKey] || translatingKey === messageKey) {
+    if (translations[messageKey]) {
+      setTranslations((prev) => {
+        const next = { ...prev };
+        delete next[messageKey];
+        return next;
+      });
+      return;
+    }
+
+    if (translatingKey === messageKey) {
       return;
     }
 
@@ -383,7 +392,7 @@ export default function SpeakingPage({ selectedModel, fadeVariants }: SpeakingPa
                         <button
                           type="button"
                           onClick={() => void handleTranslate(messageKey, message.content)}
-                          disabled={Boolean(translation) || isTranslating}
+                          disabled={isTranslating}
                           className="inline-flex items-center gap-1 rounded-full bg-violet-50 px-2.5 py-1 text-[11px] font-semibold text-violet-600 transition-colors hover:bg-violet-100 disabled:cursor-default disabled:opacity-70"
                           title="Dịch sang tiếng Việt"
                         >
@@ -392,7 +401,7 @@ export default function SpeakingPage({ selectedModel, fadeVariants }: SpeakingPa
                           ) : (
                             <Languages className="h-3.5 w-3.5" />
                           )}
-                          {translation ? 'Đã dịch' : isTranslating ? 'Đang dịch' : 'Dịch'}
+                          {translation ? 'Ẩn dịch' : isTranslating ? 'Đang dịch' : 'Dịch'}
                         </button>
                       )}
                     </div>
