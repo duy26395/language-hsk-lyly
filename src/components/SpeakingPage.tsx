@@ -1,8 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Mic, MicOff, Volume2, RotateCcw, User, Bot } from 'lucide-react';
+import { Languages, Loader2, Mic, MicOff, RotateCcw, User, Bot, Volume2 } from 'lucide-react';
 import { io, Socket } from 'socket.io-client';
-import { AIModel } from '../lib/ai';
+import { AIModel, translateToVietnamese } from '../lib/ai';
 import { AudioPlayer, AudioRecorder, speakToTeacher, textToSpeech } from '../lib/voice';
 
 interface Message {
@@ -20,13 +20,15 @@ function canUseRealtimeVoice() {
   return ['localhost', '127.0.0.1'].includes(window.location.hostname);
 }
 
-export default function SpeakingPage({ selectedModel: _selectedModel, fadeVariants }: SpeakingPageProps) {
+export default function SpeakingPage({ selectedModel, fadeVariants }: SpeakingPageProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isRecording, setIsRecording] = useState(false);
   const [loading, setLoading] = useState(false);
   const [hskLevel, setHskLevel] = useState('HSK 3');
   const [ttsVoice, setTtsVoice] = useState('zh-CN-XiaoxiaoNeural');
   const [voiceError, setVoiceError] = useState('');
+  const [translations, setTranslations] = useState<Record<string, string>>({});
+  const [translatingKey, setTranslatingKey] = useState<string | null>(null);
 
   const recorderRef = useRef<AudioRecorder | null>(null);
   const socketRef = useRef<Socket | null>(null);
@@ -258,8 +260,27 @@ export default function SpeakingPage({ selectedModel: _selectedModel, fadeVarian
     }
   };
 
+  const handleTranslate = async (messageKey: string, text: string) => {
+    if (translations[messageKey] || translatingKey === messageKey) {
+      return;
+    }
+
+    setTranslatingKey(messageKey);
+    try {
+      const translated = await translateToVietnamese(text, selectedModel);
+      if (translated) {
+        setTranslations((prev) => ({ ...prev, [messageKey]: translated }));
+      }
+    } catch (error) {
+      console.error('Translate error:', error);
+    } finally {
+      setTranslatingKey((current) => (current === messageKey ? null : current));
+    }
+  };
+
   const resetSession = () => {
     setMessages([]);
+    setTranslations({});
     setVoiceError('');
   };
 
@@ -309,47 +330,82 @@ export default function SpeakingPage({ selectedModel: _selectedModel, fadeVarian
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[1.25rem] border border-violet-50 bg-white/65 shadow-inner backdrop-blur-md md:rounded-[2rem]">
         <div ref={chatScrollRef} className="no-scrollbar flex-1 min-h-0 overflow-y-auto p-3 md:p-4">
           <div className="min-w-0 space-y-2">
-            {messages.map((message, index) => (
-              <div
-                key={`${message.role}-${index}`}
-                className={`flex items-start gap-2 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-              >
-                {message.role === 'assistant' && (
-                  <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-violet-100 text-violet-600">
-                    <Bot className="h-4 w-4" />
-                  </div>
-                )}
+            {messages.map((message, index) => {
+              const messageKey = `${message.role}-${index}-${message.content}`;
+              const translation = translations[messageKey];
+              const isTranslating = translatingKey === messageKey;
 
+              return (
                 <div
-                  className={`group max-w-[86%] break-words rounded-2xl px-3 py-2 text-left shadow-sm md:max-w-[80%] ${
-                    message.role === 'user'
-                      ? 'rounded-br-md bg-slate-800 text-white'
-                      : 'rounded-bl-md border border-violet-100 bg-white text-slate-700'
-                  }`}
+                  key={messageKey}
+                  className={`flex items-start gap-2 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                 >
-                  <p className="mb-1 text-sm md:text-base">{message.content}</p>
-                  <button
-                    type="button"
-                    onClick={() => handleReadAloud(message.content)}
-                    className={`mt-1 inline-flex h-7 w-7 items-center justify-center rounded-full transition-colors ${
-                      message.role === 'user'
-                        ? 'text-white/75 hover:bg-white/10 hover:text-white'
-                        : 'text-violet-500 hover:bg-violet-50 hover:text-violet-700'
-                    }`}
-                    title="Nghe lại đoạn này"
-                    aria-label={`Nghe lại đoạn ${index + 1}`}
-                  >
-                    <Volume2 className="h-4 w-4" />
-                  </button>
-                </div>
+                  {message.role === 'assistant' && (
+                    <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-violet-100 text-violet-600">
+                      <Bot className="h-4 w-4" />
+                    </div>
+                  )}
 
-                {message.role === 'user' && (
-                  <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-800 text-white">
-                    <User className="h-4 w-4" />
+                  <div
+                    className={`group max-w-[86%] break-words rounded-2xl px-3 py-2 text-left shadow-sm md:max-w-[80%] ${
+                      message.role === 'user'
+                        ? 'rounded-br-md bg-slate-800 text-white'
+                        : 'rounded-bl-md border border-violet-100 bg-white text-slate-700'
+                    }`}
+                  >
+                    <p className="mb-1 text-sm md:text-base">{message.content}</p>
+                    {translation && (
+                      <div
+                        className={`mb-2 rounded-xl px-3 py-2 text-xs leading-relaxed ${
+                          message.role === 'user'
+                            ? 'bg-white/10 text-white/85'
+                            : 'bg-slate-50 text-slate-600'
+                        }`}
+                      >
+                        <span className="font-semibold">Dịch:</span> {translation}
+                      </div>
+                    )}
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleReadAloud(message.content)}
+                        className={`inline-flex h-7 w-7 items-center justify-center rounded-full transition-colors ${
+                          message.role === 'user'
+                            ? 'text-white/75 hover:bg-white/10 hover:text-white'
+                            : 'text-violet-500 hover:bg-violet-50 hover:text-violet-700'
+                        }`}
+                        title="Nghe lại đoạn này"
+                        aria-label={`Nghe lại đoạn ${index + 1}`}
+                      >
+                        <Volume2 className="h-4 w-4" />
+                      </button>
+                      {message.role === 'assistant' && (
+                        <button
+                          type="button"
+                          onClick={() => void handleTranslate(messageKey, message.content)}
+                          disabled={Boolean(translation) || isTranslating}
+                          className="inline-flex items-center gap-1 rounded-full bg-violet-50 px-2.5 py-1 text-[11px] font-semibold text-violet-600 transition-colors hover:bg-violet-100 disabled:cursor-default disabled:opacity-70"
+                          title="Dịch sang tiếng Việt"
+                        >
+                          {isTranslating ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Languages className="h-3.5 w-3.5" />
+                          )}
+                          {translation ? 'Đã dịch' : isTranslating ? 'Đang dịch' : 'Dịch'}
+                        </button>
+                      )}
+                    </div>
                   </div>
-                )}
-              </div>
-            ))}
+
+                  {message.role === 'user' && (
+                    <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-800 text-white">
+                      <User className="h-4 w-4" />
+                    </div>
+                  )}
+                </div>
+              );
+            })}
 
             {loading && (
               <div className="flex items-start justify-start gap-2">

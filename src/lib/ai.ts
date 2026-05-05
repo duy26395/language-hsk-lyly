@@ -169,6 +169,21 @@ export async function chatNormally(
   }
 }
 
+export async function translateToVietnamese(
+  text: string,
+  model: AIModel = 'gemini',
+): Promise<string | null> {
+  const prompt = [
+    'Translate the following text into natural Vietnamese.',
+    'Return only the Vietnamese translation.',
+    'Do not explain anything.',
+    '',
+    text,
+  ].join('\n');
+
+  return chatNormally(prompt, [], model);
+}
+
 function normalizeChatResult(result: unknown): string | null {
   if (typeof result === 'string') return result;
   if (result == null) return null;
