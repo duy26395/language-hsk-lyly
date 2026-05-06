@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Languages, Loader2, Mic, MicOff, RotateCcw, User, Bot, Volume2 } from 'lucide-react';
 import { io, Socket } from 'socket.io-client';
@@ -29,6 +29,7 @@ export default function SpeakingPage({ selectedModel, fadeVariants }: SpeakingPa
   const [voiceError, setVoiceError] = useState('');
   const [translations, setTranslations] = useState<Record<string, string>>({});
   const [translatingKey, setTranslatingKey] = useState<string | null>(null);
+  const [readingKey, setReadingKey] = useState<string | null>(null);
 
   const recorderRef = useRef<AudioRecorder | null>(null);
   const socketRef = useRef<Socket | null>(null);
@@ -238,7 +239,9 @@ export default function SpeakingPage({ selectedModel, fadeVariants }: SpeakingPa
     }
   };
 
-  const handleReadAloud = async (text: string) => {
+  const handleReadAloud = async (messageKey: string, text: string) => {
+    if (readingKey) return;
+    setReadingKey(messageKey);
     try {
       setVoiceError('');
       const ttsResult = await textToSpeech(text, ttsVoice);
@@ -257,6 +260,8 @@ export default function SpeakingPage({ selectedModel, fadeVariants }: SpeakingPa
     } catch (e) {
       console.error(e);
       setVoiceError('Không thể phát âm thanh lúc này.');
+    } finally {
+      setReadingKey((current) => (current === messageKey ? null : current));
     }
   };
 
@@ -377,7 +382,8 @@ export default function SpeakingPage({ selectedModel, fadeVariants }: SpeakingPa
                     <div className="flex flex-wrap items-center gap-2">
                       <button
                         type="button"
-                        onClick={() => handleReadAloud(message.content)}
+                        onClick={() => void handleReadAloud(messageKey, message.content)}
+                        disabled={readingKey === messageKey}
                         className={`inline-flex h-7 w-7 items-center justify-center rounded-full transition-colors ${
                           message.role === 'user'
                             ? 'text-white/75 hover:bg-white/10 hover:text-white'
@@ -386,7 +392,11 @@ export default function SpeakingPage({ selectedModel, fadeVariants }: SpeakingPa
                         title="Nghe lại đoạn này"
                         aria-label={`Nghe lại đoạn ${index + 1}`}
                       >
-                        <Volume2 className="h-4 w-4" />
+                        {readingKey === messageKey ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Volume2 className="h-4 w-4" />
+                        )}
                       </button>
                       {message.role === 'assistant' && (
                         <button
@@ -458,7 +468,13 @@ export default function SpeakingPage({ selectedModel, fadeVariants }: SpeakingPa
               }`}
               aria-label={isRecording ? 'Stop recording' : 'Start voice input'}
             >
-              {isRecording ? <MicOff className="h-8 w-8 md:h-10 md:w-10" /> : <Mic className="h-8 w-8 md:h-10 md:w-10" />}
+              {loading ? (
+                <Loader2 className="h-8 w-8 animate-spin md:h-10 md:w-10" />
+              ) : isRecording ? (
+                <MicOff className="h-8 w-8 md:h-10 md:w-10" />
+              ) : (
+                <Mic className="h-8 w-8 md:h-10 md:w-10" />
+              )}
             </button>
 
             {isRecording && (

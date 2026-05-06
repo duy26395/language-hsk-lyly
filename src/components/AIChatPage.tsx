@@ -304,8 +304,12 @@ export default function AIChatPage({ selectedModel, fadeVariants }: AIChatPagePr
               className="absolute right-1.5 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-xl bg-slate-900 text-white shadow-md transition-all hover:bg-slate-700 active:scale-95 disabled:opacity-50 md:right-2 md:h-10 md:w-10"
               aria-label="Send message"
             >
-              <Send className="h-4 w-4 md:h-5 md:w-5" />
-            </button>
+                {loading ? (
+                  <Loader2 className="h-4 w-4 animate-spin md:h-5 md:w-5" />
+                ) : (
+                  <Send className="h-4 w-4 md:h-5 md:w-5" />
+                )}
+              </button>
             </div>
           </div>
         </div>

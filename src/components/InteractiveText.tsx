@@ -6,7 +6,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 
 interface InteractiveTextProps {
   text: string;
-  onAddToNotebook?: (word: string, explanation: WordExplanation) => void;
+  onAddToNotebook?: (word: string, explanation: WordExplanation) => Promise<boolean>;
   selectedModel?: AIModel;
 }
 
@@ -26,6 +26,7 @@ export default function InteractiveText({
   const [selected, setSelected] = useState<SelectionState | null>(null);
   const [explanation, setExplanation] = useState<WordExplanation | null>(null);
   const [loading, setLoading] = useState(false);
+  const [savingNotebook, setSavingNotebook] = useState(false);
   const [isTouchDevice, setIsTouchDevice] = useState(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
@@ -347,11 +348,16 @@ export default function InteractiveText({
 
                     {onAddToNotebook && (
                       <button
-                        onClick={() => onAddToNotebook(selected.word, explanation)}
+                        onClick={async () => {
+                          setSavingNotebook(true);
+                          await onAddToNotebook(selected.word, explanation);
+                          setSavingNotebook(false);
+                        }}
+                        disabled={savingNotebook}
                         className="flex w-full items-center justify-center rounded-2xl bg-gradient-to-r from-violet-600 to-indigo-600 px-4 py-3 text-[13px] font-bold text-white shadow-sm transition-all hover:shadow-lg hover:shadow-violet-200 active:scale-[0.98]"
                       >
-                        <Plus className="mr-2 h-4 w-4" />
-                        Lưu vào sổ tay
+                        {savingNotebook ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
+                        {savingNotebook ? 'Đang lưu...' : 'Lưu vào sổ tay'}
                       </button>
                     )}
                   </div>

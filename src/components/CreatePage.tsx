@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Loader2, Wand2, VolumeX, Volume2, Shuffle, BookMarked, Check } from 'lucide-react';
 import InteractiveText from './InteractiveText';
@@ -14,8 +14,8 @@ interface CreatePageProps {
   isGenerating: boolean;
   setIsGenerating: (val: boolean) => void;
   selectedModel: AIModel;
-  onAddToNotebook: (word: string, explanation: WordExplanation) => void;
-  onSavePassage: (text: string) => void;
+  onAddToNotebook: (word: string, explanation: WordExplanation) => Promise<boolean>;
+  onSavePassage: (text: string) => Promise<boolean>;
   onOpenReading: (text: string) => void;
   fadeVariants: any;
 }
@@ -187,19 +187,25 @@ export default function CreatePage({
   );
 }
 
-function SavePassageButton({ text, onSave }: { text: string; onSave: (text: string) => void }) {
+function SavePassageButton({ text, onSave }: { text: string; onSave: (text: string) => Promise<boolean> }) {
   const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
 
-  const handleSave = () => {
-    onSave(text);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+  const handleSave = async () => {
+    setSaving(true);
+    const ok = await onSave(text);
+    setSaving(false);
+    if (ok) {
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    }
   };
 
   return (
     <button
+      type="button"
       onClick={handleSave}
-      disabled={saved}
+      disabled={saved || saving}
       className={`w-full flex min-w-0 items-center justify-center gap-2 !rounded-full !px-4 !py-1.5 !text-xs font-semibold border shadow-sm backdrop-blur-sm transition-all duration-300 active:scale-[0.97]
         ${
           saved
@@ -207,7 +213,11 @@ function SavePassageButton({ text, onSave }: { text: string; onSave: (text: stri
             : 'border-violet-100 bg-white/50 text-violet-700 hover:border-violet-200 hover:bg-violet-50'
         }`}
     >
-      {saved ? (
+      {saving ? (
+        <>
+          <Loader2 className="h-4 w-4 animate-spin" /> Đang lưu...
+        </>
+      ) : saved ? (
         <>
           <Check className="h-4 w-4" /> Đã lưu!
         </>

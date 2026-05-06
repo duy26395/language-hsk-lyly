@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
-import { motion } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import {
   BookOpen,
   Check,
+  CircleAlert,
+  CircleCheck,
   Cloud,
   FileText,
   LibraryBig,
@@ -19,15 +21,22 @@ interface NotebookPageProps {
   noteContent: string;
   setNoteContent: (val: string) => void;
   savedNotes: SavedNoteEntry[];
-  handleRemoveSavedNote: (id: string) => void;
+  handleRemoveSavedNote: (id: string) => Promise<boolean>;
   savedWords: SavedWordEntry[];
-  handleRemoveWord: (word: string) => void;
+  handleRemoveWord: (word: string) => Promise<boolean>;
   savedPassages: SavedPassageEntry[];
-  handleRemovePassage: (id: string) => void;
+  handleRemovePassage: (id: string) => Promise<boolean>;
   onOpenPassage: (text: string) => void;
   isSyncing: boolean;
+  isSavingNote: boolean;
+  notebookToast: { type: 'success' | 'error'; title: string; message: string } | null;
   lastSynced: number | null;
-  saveToServer: (words: SavedWordEntry[], passages?: SavedPassageEntry[], notes?: SavedNoteEntry[]) => void;
+  saveToServer: (
+    words: SavedWordEntry[],
+    passages?: SavedPassageEntry[],
+    notes?: SavedNoteEntry[],
+    options?: { showToast?: boolean; successMessage?: string; errorMessage?: string },
+  ) => Promise<boolean>;
   onSaveNotes: () => void;
   handlePrint: () => void;
   fadeVariants: any;
@@ -99,6 +108,8 @@ export default function NotebookPage({
   handleRemovePassage,
   onOpenPassage,
   isSyncing,
+  isSavingNote,
+  notebookToast,
   lastSynced,
   saveToServer,
   onSaveNotes,
@@ -193,6 +204,39 @@ export default function NotebookPage({
       exit="exit"
       className="mx-auto flex min-h-full w-full max-w-6xl flex-col gap-5 p-4 print:bg-white print:p-0 sm:p-5 md:gap-6 md:p-10"
     >
+      <AnimatePresence>
+        {notebookToast && (
+          <motion.div
+            initial={{ opacity: 0, y: -16, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -12, scale: 0.98 }}
+            className="fixed right-4 top-4 z-[140] w-[calc(100vw-2rem)] max-w-sm sm:right-6 sm:top-6"
+            role="status"
+            aria-live="polite"
+          >
+            <div
+              className={`flex items-start gap-3 rounded-2xl border bg-white px-4 py-3 shadow-[0_18px_50px_rgba(15,23,42,0.18)] ${
+                notebookToast.type === 'success'
+                  ? 'border-emerald-100 text-emerald-700'
+                  : 'border-rose-100 text-rose-700'
+              }`}
+            >
+              {notebookToast.type === 'success' ? (
+                <CircleCheck className="mt-0.5 h-5 w-5 shrink-0" />
+              ) : (
+                <CircleAlert className="mt-0.5 h-5 w-5 shrink-0" />
+              )}
+              <div className="min-w-0">
+                <p className="text-sm font-black">
+                  {notebookToast.title}
+                </p>
+                <p className="mt-0.5 text-sm font-semibold text-slate-600">{notebookToast.message}</p>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <section className="overflow-hidden rounded-[2rem] border border-violet-100/70 bg-[radial-gradient(circle_at_top_left,_rgba(196,181,253,0.35),_transparent_35%),linear-gradient(135deg,_rgba(255,255,255,0.96),_rgba(245,243,255,0.98))] p-5 shadow-[0_20px_60px_rgba(109,40,217,0.10)] print:shadow-none sm:p-6 md:p-8">
         <div className="flex flex-col gap-5">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -212,7 +256,12 @@ export default function NotebookPage({
 
             <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:justify-end">
               <button
-                onClick={() => saveToServer(savedWords, savedPassages)}
+                onClick={() => {
+                  void saveToServer(savedWords, savedPassages, savedNotes, {
+                    successMessage: 'Notebook synced successfully.',
+                    errorMessage: 'Could not sync notebook. Please try again.',
+                  });
+                }}
                 disabled={isSyncing || (savedWords.length === 0 && savedPassages.length === 0)}
                 className={`${btnSecondary} ${isSyncing ? 'opacity-70' : ''}`}
               >
@@ -366,11 +415,11 @@ export default function NotebookPage({
               </p>
               <button
                 onClick={onSaveNotes}
-                disabled={isSyncing || !noteContent.trim()}
+                disabled={isSavingNote || !noteContent.trim()}
                 className="inline-flex shrink-0 items-center justify-center gap-2 rounded-2xl bg-amber-500 px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-amber-200 transition-all hover:bg-amber-600 disabled:cursor-not-allowed disabled:opacity-70 active:scale-[0.98]"
               >
-                {isSyncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Cloud className="h-4 w-4" />}
-                Save Notes
+                {isSavingNote ? <Loader2 className="h-4 w-4 animate-spin" /> : <Cloud className="h-4 w-4" />}
+                {isSavingNote ? 'Saving...' : 'Save Notes'}
               </button>
             </div>
           </div>
@@ -433,9 +482,11 @@ function WordCard({
 }: {
   item: SavedWordEntry;
   savedAt: number;
-  onRemove: (word: string) => void;
+  onRemove: (word: string) => Promise<boolean>;
   onOpenPassage: (text: string) => void;
 }) {
+  const [removing, setRemoving] = useState(false);
+
   return (
     <article className="group overflow-hidden rounded-[1.5rem] border border-violet-100/70 bg-white/95 shadow-[0_8px_30px_rgba(109,40,217,0.07)] transition-all duration-300 hover:-translate-y-0.5 hover:border-violet-200 hover:shadow-[0_14px_34px_rgba(109,40,217,0.12)]">
       <div className="grid gap-4 p-4 sm:p-5">
@@ -454,11 +505,16 @@ function WordCard({
           </div>
 
           <button
-            onClick={() => onRemove(item.word)}
+            onClick={async () => {
+              setRemoving(true);
+              await onRemove(item.word);
+              setRemoving(false);
+            }}
+            disabled={removing}
             className="rounded-full p-2 text-slate-300 transition-all hover:bg-red-50 hover:text-red-500 sm:opacity-0 sm:group-hover:opacity-100"
             title="Remove word"
           >
-            <Trash2 className="h-4 w-4" />
+            {removing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
           </button>
         </div>
 
@@ -494,8 +550,10 @@ function PassageCard({
 }: {
   item: SavedPassageEntry;
   onOpenPassage: (text: string) => void;
-  onRemove: (id: string) => void;
+  onRemove: (id: string) => Promise<boolean>;
 }) {
+  const [removing, setRemoving] = useState(false);
+
   return (
     <article className="group overflow-hidden rounded-[1.5rem] border border-sky-100/80 bg-white/95 shadow-[0_8px_30px_rgba(2,132,199,0.06)] transition-all duration-300 hover:-translate-y-0.5 hover:border-sky-200 hover:shadow-[0_14px_34px_rgba(2,132,199,0.12)]">
       <div className="h-1 w-full bg-gradient-to-r from-sky-400 via-indigo-400 to-violet-400" />
@@ -512,11 +570,16 @@ function PassageCard({
           </div>
 
           <button
-            onClick={() => onRemove(item.id)}
+            onClick={async () => {
+              setRemoving(true);
+              await onRemove(item.id);
+              setRemoving(false);
+            }}
+            disabled={removing}
             className="rounded-full p-2 text-slate-300 transition-all hover:bg-red-50 hover:text-red-500 sm:opacity-0 sm:group-hover:opacity-100"
             title="Remove passage"
           >
-            <Trash2 className="h-4 w-4" />
+            {removing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
           </button>
         </div>
 
@@ -546,9 +609,11 @@ function SavedNoteCard({
   onOpenPassage,
 }: {
   item: SavedNoteEntry;
-  onRemove: (id: string) => void;
+  onRemove: (id: string) => Promise<boolean>;
   onOpenPassage: (text: string) => void;
 }) {
+  const [removing, setRemoving] = useState(false);
+
   return (
     <article className="group overflow-hidden rounded-[1.5rem] border border-rose-100/80 bg-white/95 shadow-[0_8px_30px_rgba(244,63,94,0.07)]">
       <div className="h-1 w-full bg-gradient-to-r from-rose-400 via-amber-300 to-fuchsia-400" />
@@ -561,11 +626,16 @@ function SavedNoteCard({
             </span>
           </div>
           <button
-            onClick={() => onRemove(item.id)}
+            onClick={async () => {
+              setRemoving(true);
+              await onRemove(item.id);
+              setRemoving(false);
+            }}
+            disabled={removing}
             className="rounded-full p-2 text-slate-300 transition-all hover:bg-red-50 hover:text-red-500 sm:opacity-0 sm:group-hover:opacity-100"
             title="Remove note"
           >
-            <Trash2 className="h-4 w-4" />
+            {removing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
           </button>
         </div>
         <p className="whitespace-pre-wrap text-[15px] leading-7 text-slate-700">{item.content}</p>

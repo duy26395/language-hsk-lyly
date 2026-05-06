@@ -1,15 +1,17 @@
-import React from 'react';
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Volume2, Lightbulb, Plus } from 'lucide-react';
+import { X, Volume2, Lightbulb, Plus, Loader2 } from 'lucide-react';
 import { WordExplanation, readAloud } from '../lib/ai';
 
 interface WordModalProps {
   explanation: WordExplanation | null;
   onClose: () => void;
-  onAddToNotebook?: (word: string, explanation: WordExplanation) => void;
+  onAddToNotebook?: (word: string, explanation: WordExplanation) => Promise<boolean>;
 }
 
 export default function WordModal({ explanation, onClose, onAddToNotebook }: WordModalProps) {
+  const [savingNotebook, setSavingNotebook] = useState(false);
+
   if (!explanation) return null;
 
   const getHskColor = (level: string) => {
@@ -112,13 +114,18 @@ export default function WordModal({ explanation, onClose, onAddToNotebook }: Wor
 
             {onAddToNotebook && (
               <button 
-                onClick={() => {
-                  onAddToNotebook(explanation.word, explanation);
+                onClick={async () => {
+                  setSavingNotebook(true);
+                  const ok = await onAddToNotebook(explanation.word, explanation);
+                  setSavingNotebook(false);
+                  if (!ok) return;
                   onClose();
                 }}
+                disabled={savingNotebook}
                 className="w-full flex items-center justify-center gap-2 py-4 bg-violet-600 text-white rounded-2xl font-bold hover:bg-violet-700 transition-all active:scale-95 shadow-lg shadow-violet-200"
               >
-                <Plus className="w-5 h-5" /> Lưu vào Sổ tay
+                {savingNotebook ? <Loader2 className="h-5 w-5 animate-spin" /> : <Plus className="w-5 h-5" />}
+                {savingNotebook ? 'Đang lưu...' : 'Lưu vào Sổ tay'}
               </button>
             )}
           </div>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   BookOpen,
@@ -8,6 +8,7 @@ import {
   Volume2,
   BookMarked,
   Check,
+  Loader2,
 } from 'lucide-react';
 import InteractiveText from './InteractiveText';
 import { WordExplanation, readAloud, AIModel } from '../lib/ai';
@@ -18,8 +19,8 @@ interface ReadPageProps {
   readText: string;
   setReadText: (val: string) => void;
   selectedModel: AIModel;
-  onAddToNotebook: (word: string, explanation: WordExplanation) => void;
-  onSavePassage: (text: string) => void;
+  onAddToNotebook: (word: string, explanation: WordExplanation) => Promise<boolean>;
+  onSavePassage: (text: string) => Promise<boolean>;
   fadeVariants: any;
 }
 
@@ -132,19 +133,25 @@ export default function ReadPage({
   );
 }
 
-function SavePassageButton({ text, onSave }: { text: string; onSave: (text: string) => void }) {
+function SavePassageButton({ text, onSave }: { text: string; onSave: (text: string) => Promise<boolean> }) {
   const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
 
-  const handleSave = () => {
-    onSave(text);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+  const handleSave = async () => {
+    setSaving(true);
+    const ok = await onSave(text);
+    setSaving(false);
+    if (ok) {
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    }
   };
 
   return (
     <button
+      type="button"
       onClick={handleSave}
-      disabled={saved}
+      disabled={saved || saving}
       className={`flex min-w-0 items-center justify-center gap-2 !rounded-full !px-4 !py-2 !text-xs font-semibold border shadow-sm backdrop-blur-sm transition-all duration-300 active:scale-[0.97]
         ${
           saved
@@ -152,7 +159,11 @@ function SavePassageButton({ text, onSave }: { text: string; onSave: (text: stri
             : 'border-violet-100 bg-white/50 text-violet-700 hover:border-violet-200 hover:bg-violet-50'
         }`}
     >
-      {saved ? (
+      {saving ? (
+        <>
+          <Loader2 className="h-4 w-4 animate-spin" /> Đang lưu...
+        </>
+      ) : saved ? (
         <>
           <Check className="h-4 w-4" /> Đã lưu!
         </>

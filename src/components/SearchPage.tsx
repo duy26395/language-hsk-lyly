@@ -16,7 +16,7 @@ import { WordExplanation, explainWord, AIModel, readAloud } from '../lib/ai';
 
 interface SearchPageProps {
   selectedModel: AIModel;
-  onAddToNotebook: (word: string, explanation: WordExplanation) => void;
+  onAddToNotebook: (word: string, explanation: WordExplanation) => Promise<boolean>;
   fadeVariants: any;
 }
 
@@ -41,6 +41,7 @@ export default function SearchPage({
 }: SearchPageProps) {
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
+  const [savingWord, setSavingWord] = useState(false);
   const [explanation, setExplanation] = useState<WordExplanation | null>(null);
   const [history, setHistory] = useState<string[]>([]);
 
@@ -335,10 +336,15 @@ export default function SearchPage({
 
                 <button
                   type="button"
-                  onClick={() => onAddToNotebook(explanation.word, explanation)}
+                  onClick={async () => {
+                    setSavingWord(true);
+                    await onAddToNotebook(explanation.word, explanation);
+                    setSavingWord(false);
+                  }}
+                  disabled={savingWord}
                   className="flex w-full items-center justify-center gap-2 rounded-2xl bg-violet-600 py-4 font-bold text-white shadow-lg shadow-violet-200 transition-all hover:bg-violet-700 active:scale-95"
                 >
-                  <Plus className="h-5 w-5" /> Lưu vào Sổ tay
+                  {savingWord ? <Loader2 className="h-5 w-5 animate-spin" /> : <Plus className="h-5 w-5" />} {savingWord ? 'Đang lưu...' : 'Lưu vào Sổ tay'}
                 </button>
               </div>
             </motion.section>

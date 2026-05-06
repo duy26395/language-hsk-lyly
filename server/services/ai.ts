@@ -551,7 +551,7 @@ function normalizeWordExplanation(data: any): WordExplanation {
         try {
           const parsed = new URL(url);
           if (!isAllowedVideoHost(parsed.hostname)) return null;
-          return { title: title || 'Video tham khao', url: parsed.toString() };
+          return { title: title || 'Video tham kh?o', url: parsed.toString() };
         } catch {
           return null;
         }

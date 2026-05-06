@@ -3,11 +3,17 @@ import express from 'express';
 import os from 'node:os';
 import path from 'node:path';
 import fs from 'node:fs/promises';
-import { fileURLToPath } from 'node:url';
 import { AIModel, QuizType, explainWord, generateChineseText, generateQuiz, chatWithTeacher, chatNormally } from './services/ai';
 
 import { runSpeakPipeline } from './services/voice-pipeline';
 import { normalizeChineseVoice, synthesizeChineseSpeech } from './services/tts-provider';
+import { db, initDb } from './services/db';
+
+// Initialize DB on start and let DB-backed routes wait for it.
+const dbReady = initDb().catch(err => {
+  console.error('DB Init Error:', err);
+  throw err;
+});
 
 const app = express();
 const allowedModels: AIModel[] = ['gemini', 'gpt-4o', 'gpt-3.5-turbo', 'llama-3.1-8b-instant', 'llama-3.3-70b-versatile', 'qwen/qwen3-32b', 'meta-llama/llama-4-scout-17b-16e-instruct', 'openai/gpt-oss-120b', 'github-gpt-4o', 'github-gpt-4o-mini'];
@@ -301,34 +307,161 @@ const getReadableVocDirs = () => {
   return [...new Set(dirs)];
 };
 
+const createMinimalWord = (word: string, savedAt: number) => ({
+  word,
+  savedAt,
+  explanation: {
+    word,
+    pinyin: '',
+    meaning: word,
+    hskLevel: 'Saved',
+    learningTip: '',
+    example: word,
+    exampleMeaning: '',
+  },
+});
+
+const normalizeNotebookRows = (rows: any[]) => {
+  const words = rows
+    .filter((row) => row.type === 'words' && typeof row.data === 'string')
+    .map((row) => createMinimalWord(row.data, Number(row.saved_at ?? Date.now())));
+
+  const passages = rows
+    .filter((row) => row.type === 'passages' && typeof row.data === 'string')
+    .map((row) => ({
+      id: String(row.id),
+      text: row.data,
+      savedAt: Number(row.saved_at ?? Date.now()),
+      source: 'read' as const,
+    }));
+
+  const notes = rows
+    .filter((row) => row.type === 'notes' && typeof row.data === 'string')
+    .map((row) => ({
+      id: String(row.id),
+      content: row.data,
+      savedAt: Number(row.saved_at ?? Date.now()),
+    }));
+
+  return { words, passages, notes };
+};
+
+const saveNotebookRows = async (
+  words: any[],
+  passages: any[],
+  notes: any[],
+) => {
+  await dbReady;
+  await db.transaction(async (execute) => {
+    await execute('DELETE FROM notebook');
+
+    for (const word of words) {
+      if (!word || typeof word.word !== 'string' || !word.word.trim()) continue;
+      await execute({
+        sql: 'INSERT INTO notebook (type, data, saved_at) VALUES (?, ?, ?)',
+        args: ['words', word.word.trim(), Number(word.savedAt ?? Date.now())],
+      });
+    }
+
+    for (const passage of passages) {
+      if (!passage || typeof passage.text !== 'string' || !passage.text.trim()) continue;
+      await execute({
+        sql: 'INSERT INTO notebook (type, data, saved_at) VALUES (?, ?, ?)',
+        args: ['passages', passage.text.trim(), Number(passage.savedAt ?? Date.now())],
+      });
+    }
+
+    for (const note of notes) {
+      if (!note || typeof note.content !== 'string' || !note.content.trim()) continue;
+      await execute({
+        sql: 'INSERT INTO notebook (type, data, saved_at) VALUES (?, ?, ?)',
+        args: ['notes', note.content.trim(), Number(note.savedAt ?? Date.now())],
+      });
+    }
+  });
+};
+
 const loadLatestVocabularyData = async () => {
-  const candidates: Array<{ dir: string; fileName: string }> = [];
+  try {
+    await dbReady;
+    const notebookResult = await db.execute(`
+      SELECT id, type, data, saved_at FROM notebook ORDER BY saved_at DESC, id DESC
+    `);
 
-  for (const dir of getReadableVocDirs()) {
-    try {
-      const files = await fs.readdir(dir);
-      const jsonFiles = files
-        .filter(f => f.startsWith('vocabulary_') && f.endsWith('.json'))
-        .sort()
-        .reverse();
+    if (notebookResult.rows.length > 0) {
+      return {
+        data: normalizeNotebookRows(notebookResult.rows),
+        fileName: 'notebook',
+      };
+    }
 
-      if (jsonFiles[0]) {
-        candidates.push({ dir, fileName: jsonFiles[0] });
+    const result = await db.execute(`
+      SELECT data, id as "fileName" FROM snapshots ORDER BY created_at DESC LIMIT 1
+    `);
+    
+    if (result.rows.length === 0) {
+      // Try legacy file system if DB is empty
+      const candidates: Array<{ dir: string; fileName: string }> = [];
+
+      for (const dir of getReadableVocDirs()) {
+        try {
+          const files = await fs.readdir(dir);
+          const jsonFiles = files
+            .filter(f => f.startsWith('vocabulary_') && f.endsWith('.json'))
+            .sort()
+            .reverse();
+
+          if (jsonFiles[0]) {
+            candidates.push({ dir, fileName: jsonFiles[0] });
+          }
+        } catch (e) {}
       }
-    } catch (e) {}
-  }
 
-  if (candidates.length === 0) {
+      if (candidates.length === 0) {
+        return null;
+      }
+
+      candidates.sort((a, b) => b.fileName.localeCompare(a.fileName));
+      const latest = candidates[0];
+      const content = await fs.readFile(path.join(latest.dir, latest.fileName), 'utf-8');
+      
+      // Migration: Save this file to DB
+      const data = JSON.parse(content);
+      const legacyData = Array.isArray(data)
+        ? { words: data, passages: [], notes: [] }
+        : data;
+      await saveNotebookRows(
+        Array.isArray(legacyData.words) ? legacyData.words : [],
+        Array.isArray(legacyData.passages) ? legacyData.passages : [],
+        normalizeSavedNotes(legacyData),
+      );
+
+      return {
+        data: legacyData,
+        fileName: latest.fileName,
+      };
+    }
+
+    const row = result.rows[0];
+    const data = typeof row.data === 'string' ? JSON.parse(row.data) : row.data;
+    const legacyData = Array.isArray(data)
+      ? { words: data, passages: [], notes: [] }
+      : data;
+
+    await saveNotebookRows(
+      Array.isArray(legacyData.words) ? legacyData.words : [],
+      Array.isArray(legacyData.passages) ? legacyData.passages : [],
+      normalizeSavedNotes(legacyData),
+    );
+
+    return {
+      data: legacyData,
+      fileName: row.fileName as string,
+    };
+  } catch (error) {
+    console.error('Error loading from DB:', error);
     return null;
   }
-
-  candidates.sort((a, b) => b.fileName.localeCompare(a.fileName));
-  const latest = candidates[0];
-  const content = await fs.readFile(path.join(latest.dir, latest.fileName), 'utf-8');
-  return {
-    data: JSON.parse(content),
-    fileName: latest.fileName,
-  };
 };
 
 const normalizeSavedNotes = (data: any) => {
@@ -360,9 +493,6 @@ app.post('/api/vocabulary', async (req, res) => {
       passages?: unknown;
       notes?: unknown;
     };
-    const date = new Date();
-    const dateStr = `${date.getDate().toString().padStart(2, '0')}${(date.getMonth() + 1).toString().padStart(2, '0')}${date.getFullYear()}`;
-    const vocDir = getVocDir();
     const latestSnapshot = await loadLatestVocabularyData();
     const previous = latestSnapshot?.data;
 
@@ -379,22 +509,11 @@ app.post('/api/vocabulary', async (req, res) => {
       : normalizeSavedNotes(previous);
 
     try {
-      await fs.mkdir(vocDir, { recursive: true });
-      const fileName = `vocabulary_${dateStr}.json`;
-      const filePath = path.join(vocDir, fileName);
-      await fs.writeFile(
-        filePath,
-        JSON.stringify({
-          words: safeWords,
-          passages: safePassages,
-          notes: safeNotes,
-        }, null, 2),
-        'utf-8'
-      );
-      return res.json({ success: true, fileName, notes: safeNotes });
+      await saveNotebookRows(safeWords, safePassages, safeNotes);
+      return res.json({ success: true, notes: safeNotes });
     } catch (e) {
-      console.warn('FileSystem is read-only, vocabulary not saved to disk.');
-      return res.json({ success: true, note: 'Saved to session/cloud (Disk is read-only)' });
+      console.error('Database save error:', e);
+      return res.status(500).json({ error: 'Failed to save vocabulary to database.' });
     }
   } catch (error) {
     console.error('Save vocabulary error:', error);
@@ -402,7 +521,7 @@ app.post('/api/vocabulary', async (req, res) => {
   }
 });
 
-app.get('/api/vocabulary', async (req, res) => {
+app.get('/api/vocabulary', async (_req, res) => {
   try {
     const latest = await loadLatestVocabularyData();
 

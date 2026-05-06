@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import QuizWizard from './components/QuizWizard';
 import StudyDeck, {
   ReviewGrade,
@@ -112,35 +112,75 @@ export default function App() {
   const [savedWords, setSavedWords] = useState<SavedWordEntry[]>([]);
   const [savedPassages, setSavedPassages] = useState<SavedPassageEntry[]>([]);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isSavingNote, setIsSavingNote] = useState(false);
+  const [notebookToast, setNotebookToast] = useState<{
+    type: 'success' | 'error';
+    title: string;
+    message: string;
+  } | null>(null);
   const [lastSynced, setLastSynced] = useState<number | null>(null);
-  const isHydratingNotebook = useRef(true);
+  const pendingVocabularySaveRef = useRef(new Map<string, Promise<boolean>>());
 
   const saveToServer = async (
     words: SavedWordEntry[],
     passages?: SavedPassageEntry[],
     notes?: SavedNoteEntry[],
+    options: { showToast?: boolean; successMessage?: string; errorMessage?: string } = {},
   ) => {
-    setIsSyncing(true);
-    try {
-      const response = await fetch('/api/vocabulary', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          words,
-          passages: passages ?? [],
-          ...(notes ? { notes } : {}),
-        }),
-      });
-      const data = await response.json();
-      if (Array.isArray(data.notes) && response.ok) {
-        setSavedNotes(data.notes as SavedNoteEntry[]);
-      }
-      setLastSynced(Date.now());
-    } catch {
-      console.error('Sync to server failed');
-    } finally {
-      setTimeout(() => setIsSyncing(false), 1000);
+    const requestBody = {
+      words,
+      passages: passages ?? [],
+      ...(notes ? { notes } : {}),
+    };
+    const requestKey = JSON.stringify(requestBody);
+    const pendingSave = pendingVocabularySaveRef.current.get(requestKey);
+    if (pendingSave) {
+      return pendingSave;
     }
+
+    const savePromise = (async () => {
+      setIsSyncing(true);
+      const showToast = options.showToast ?? true;
+      try {
+        const response = await fetch('/api/vocabulary', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(requestBody),
+        });
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(typeof data.error === 'string' ? data.error : 'Sync failed');
+        }
+        if (Array.isArray(data.notes) && response.ok) {
+          setSavedNotes(data.notes as SavedNoteEntry[]);
+        }
+        setLastSynced(Date.now());
+        if (showToast) {
+          setNotebookToast({
+            type: 'success',
+            title: 'Saved',
+            message: options.successMessage ?? 'Notebook saved successfully.',
+          });
+        }
+        return true;
+      } catch (error) {
+        console.error('Sync to server failed', error);
+        if (showToast) {
+          setNotebookToast({
+            type: 'error',
+            title: 'Save failed',
+            message: options.errorMessage ?? 'Could not save notebook. Please try again.',
+          });
+        }
+        return false;
+      } finally {
+        pendingVocabularySaveRef.current.delete(requestKey);
+        setTimeout(() => setIsSyncing(false), 1000);
+      }
+    })();
+
+    pendingVocabularySaveRef.current.set(requestKey, savePromise);
+    return await savePromise;
   };
 
   useEffect(() => {
@@ -190,9 +230,7 @@ export default function App() {
       }
     };
 
-    loadData().finally(() => {
-      isHydratingNotebook.current = false;
-    });
+    void loadData();
   }, []);
 
   useEffect(() => {
@@ -200,15 +238,18 @@ export default function App() {
   }, [noteContent]);
 
   useEffect(() => {
+    if (!notebookToast) return;
+
+    const timeoutId = window.setTimeout(() => {
+      setNotebookToast(null);
+    }, 3500);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [notebookToast]);
+
+  useEffect(() => {
     localStorage.setItem('chinese-saved-words', JSON.stringify(savedWords));
     localStorage.setItem('chinese-saved-passages', JSON.stringify(savedPassages));
-
-    if (isHydratingNotebook.current) {
-      return;
-    }
-
-    const timeoutId = setTimeout(() => saveToServer(savedWords, savedPassages), 2000);
-    return () => clearTimeout(timeoutId);
   }, [savedWords, savedPassages]);
 
   useEffect(() => {
@@ -237,50 +278,95 @@ export default function App() {
     setActiveTab('speaking');
   };
 
-  const handleAddToNotebook = (word: string, explanation: WordExplanation) => {
-    if (!savedWords.find((w) => w.word === word)) {
-      setSavedWords([
-        ...savedWords,
-        { word, explanation, review: createInitialReview(), savedAt: Date.now() },
-      ]);
+  const handleAddToNotebook = async (word: string, explanation: WordExplanation) => {
+    if (savedWords.find((w) => w.word === word)) {
+      setNotebookToast({
+        type: 'success',
+        title: 'Already saved',
+        message: 'This word is already in your notebook.',
+      });
+      return true;
     }
+
+    const nextWords = [
+      ...savedWords,
+      { word, explanation, review: createInitialReview(), savedAt: Date.now() },
+    ];
+    setSavedWords(nextWords);
+    return await saveToServer(nextWords, savedPassages, savedNotes, {
+      successMessage: 'Word saved to notebook.',
+      errorMessage: 'Could not save word. Please try again.',
+    });
   };
 
-  const handleRemoveWord = (word: string) => {
-    setSavedWords(savedWords.filter((w) => w.word !== word));
+  const handleRemoveWord = async (word: string) => {
+    const nextWords = savedWords.filter((w) => w.word !== word);
+    setSavedWords(nextWords);
+    return await saveToServer(nextWords, savedPassages, savedNotes, {
+      successMessage: 'Word removed from notebook.',
+      errorMessage: 'Could not remove word. Please try again.',
+    });
   };
 
-  const handleSavePassage = (text: string, source: 'read' | 'create' = 'read') => {
+  const handleSavePassage = async (text: string, source: 'read' | 'create' = 'read') => {
     const trimmed = text.trim();
-    if (!trimmed) return;
-    if (savedPassages.find((p) => p.text === trimmed)) return;
-    setSavedPassages((prev) => [
+    if (!trimmed) return false;
+    if (savedPassages.find((p) => p.text === trimmed)) {
+      setNotebookToast({
+        type: 'success',
+        title: 'Already saved',
+        message: 'This passage is already in your notebook.',
+      });
+      return true;
+    }
+    const nextPassages = [
       { id: Date.now().toString(), text: trimmed, savedAt: Date.now(), source },
-      ...prev,
-    ]);
+      ...savedPassages,
+    ];
+    setSavedPassages(nextPassages);
+    return await saveToServer(savedWords, nextPassages, savedNotes, {
+      successMessage: 'Passage saved to notebook.',
+      errorMessage: 'Could not save passage. Please try again.',
+    });
   };
 
-  const handleRemovePassage = (id: string) => {
-    setSavedPassages((prev) => prev.filter((p) => p.id !== id));
+  const handleRemovePassage = async (id: string) => {
+    const nextPassages = savedPassages.filter((p) => p.id !== id);
+    setSavedPassages(nextPassages);
+    return await saveToServer(savedWords, nextPassages, savedNotes, {
+      successMessage: 'Passage removed from notebook.',
+      errorMessage: 'Could not remove passage. Please try again.',
+    });
   };
 
   const handleSaveNotes = async () => {
     const trimmed = noteContent.trim();
     if (!trimmed) return;
+    setIsSavingNote(true);
+    setNotebookToast(null);
     const now = Date.now();
     const nextNotes: SavedNoteEntry[] = [
       { id: now.toString(), content: trimmed, savedAt: now },
       ...savedNotes,
     ];
-    await saveToServer(savedWords, savedPassages, nextNotes);
-    setNoteContent('');
-    localStorage.removeItem('chinese-notes');
+    const saved = await saveToServer(savedWords, savedPassages, nextNotes, {
+      successMessage: 'Note saved successfully.',
+      errorMessage: 'Could not save note. Please try again.',
+    });
+    if (saved) {
+      setNoteContent('');
+      localStorage.removeItem('chinese-notes');
+    }
+    setIsSavingNote(false);
   };
 
   const handleRemoveSavedNote = async (id: string) => {
     const nextNotes = savedNotes.filter((item) => item.id !== id);
     setSavedNotes(nextNotes);
-    await saveToServer(savedWords, savedPassages, nextNotes);
+    return await saveToServer(savedWords, savedPassages, nextNotes, {
+      successMessage: 'Note removed from notebook.',
+      errorMessage: 'Could not remove note. Please try again.',
+    });
   };
 
   const handleReviewWord = (word: string, grade: ReviewGrade) => {
@@ -445,6 +531,8 @@ export default function App() {
                 setActiveTab('read');
               }}
               isSyncing={isSyncing}
+              isSavingNote={isSavingNote}
+              notebookToast={notebookToast}
               lastSynced={lastSynced}
               saveToServer={saveToServer}
               onSaveNotes={handleSaveNotes}
