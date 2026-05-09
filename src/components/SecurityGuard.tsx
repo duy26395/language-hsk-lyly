@@ -49,6 +49,18 @@ const SECURITY_QUESTIONS = [
     options: ["26/03/1995", "12/02/2002", "26/05/1995", "23/06/1995"],
     correctAnswer: "26/03/1995"
   },
+  {
+    id: 8,
+    question: "Ba của Thảo tên là gì?",
+    options: ["Hiếu", "Hùng", "Hải", "Hòa"],
+    correctAnswer: "Hiếu"
+  },
+  {
+    id: 9,
+    question: "Mẹ của Thảo tên là gì?",
+    options: ["Phường", "Phương", "Phượng", "Phú"],
+    correctAnswer: "Phường"
+  },
 ];
 
 export default function SecurityGuard({ children }: SecurityGuardProps) {
@@ -57,41 +69,96 @@ export default function SecurityGuard({ children }: SecurityGuardProps) {
   const [error, setError] = useState(false);
   const [shake, setShake] = useState(false);
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
+  const [failCount, setFailCount] = useState(0);
+  const [lockUntil, setLockUntil] = useState<number | null>(null);
+  const [timeLeft, setTimeLeft] = useState(0);
+
+  const pickNewQuestion = (excludeId?: number) => {
+    const available = excludeId 
+      ? SECURITY_QUESTIONS.filter(q => q.id !== excludeId)
+      : SECURITY_QUESTIONS;
+    const randomIdx = Math.floor(Math.random() * available.length);
+    const question = available[randomIdx];
+    const shuffledOptions = [...question.options].sort(() => Math.random() - 0.5);
+    setCurrentQuestion({ ...question, options: shuffledOptions });
+  };
 
   useEffect(() => {
     const savedStatus = localStorage.getItem('app_unlocked');
     const expiry = localStorage.getItem('app_unlocked_expiry');
+    const lockedUntil = localStorage.getItem('app_lock_until');
+    const savedFails = localStorage.getItem('app_fail_count');
     
-    if (savedStatus === 'true' && expiry && Date.now() < parseInt(expiry)) {
+    if (savedFails) setFailCount(parseInt(savedFails));
+
+    if (lockedUntil && Date.now() < parseInt(lockedUntil)) {
+      setLockUntil(parseInt(lockedUntil));
+      setIsUnlocked(false);
+      pickNewQuestion();
+    } else if (savedStatus === 'true' && expiry && Date.now() < parseInt(expiry)) {
       setIsUnlocked(true);
     } else {
       setIsUnlocked(false);
-      // Pick a random question
-      const randomIdx = Math.floor(Math.random() * SECURITY_QUESTIONS.length);
-      // Shuffle options
-      const question = SECURITY_QUESTIONS[randomIdx];
-      const shuffledOptions = [...question.options].sort(() => Math.random() - 0.5);
-      setCurrentQuestion({ ...question, options: shuffledOptions });
+      pickNewQuestion();
     }
   }, []);
 
+  useEffect(() => {
+    if (!lockUntil) return;
+
+    const interval = setInterval(() => {
+      const remaining = Math.max(0, Math.ceil((lockUntil - Date.now()) / 1000));
+      setTimeLeft(remaining);
+      if (remaining === 0) {
+        setLockUntil(null);
+        localStorage.removeItem('app_lock_until');
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [lockUntil]);
+
   const handleOptionClick = (option: string) => {
+    if (lockUntil) return;
     setSelectedOption(option);
+    
     if (option === currentQuestion.correctAnswer) {
       setTimeout(() => {
         setIsUnlocked(true);
-        // Keep unlocked for 7 days
+        setFailCount(0);
+        localStorage.removeItem('app_fail_count');
         localStorage.setItem('app_unlocked', 'true');
         localStorage.setItem('app_unlocked_expiry', (Date.now() + 7 * 24 * 60 * 60 * 1000).toString());
       }, 300);
     } else {
+      const newFailCount = failCount + 1;
+      setFailCount(newFailCount);
+      localStorage.setItem('app_fail_count', newFailCount.toString());
       setError(true);
       setShake(true);
       setTimeout(() => setShake(false), 500);
-      setTimeout(() => {
-        setError(false);
-        setSelectedOption(null);
-      }, 2000);
+
+      if (newFailCount === 1) {
+        // First fail: change question
+        setTimeout(() => {
+          setError(false);
+          setSelectedOption(null);
+          pickNewQuestion(currentQuestion.id);
+        }, 1500);
+      } else {
+        // Second fail or more: lockout with backoff
+        // Backoff: 30s, 60s, 120s... (Math.pow(2, failCount - 2) * 30)
+        const backoffMultiplier = Math.min(Math.pow(2, Math.min(newFailCount - 2, 3)), 8);
+        const duration = 30 * backoffMultiplier;
+        const until = Date.now() + duration * 1000;
+        
+        setTimeout(() => {
+          setLockUntil(until);
+          localStorage.setItem('app_lock_until', until.toString());
+          setError(false);
+          setSelectedOption(null);
+        }, 1000);
+      }
     }
   };
 
@@ -257,28 +324,39 @@ export default function SecurityGuard({ children }: SecurityGuardProps) {
           </div>
 
           <h2 className="mb-6 text-xl font-bold leading-tight text-slate-800">
-            {currentQuestion.question}
+            {lockUntil ? "Security Lockout" : currentQuestion.question}
           </h2>
 
           <div className="space-y-3">
-            {currentQuestion.options.map((option, idx) => (
-              <button
-                key={idx}
-                onClick={() => handleOptionClick(option)}
-                disabled={selectedOption !== null && selectedOption !== option && error}
-                className={`w-full rounded-2xl border-2 px-5 py-4 text-left text-lg font-medium transition-all outline-none ${
-                  selectedOption === option
-                    ? option === currentQuestion.correctAnswer
-                      ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                      : error
-                        ? 'border-red-200 bg-red-50 text-red-700'
-                        : 'border-violet-400 bg-violet-50 text-violet-700'
-                    : 'border-slate-100 bg-slate-50 text-slate-700 hover:border-violet-200 hover:bg-white active:scale-[0.98]'
-                }`}
-              >
-                {option}
-              </button>
-            ))}
+            {lockUntil ? (
+              <div className="py-8 text-center">
+                <div className="mb-4 text-4xl font-black text-violet-600">
+                  {timeLeft}s
+                </div>
+                <p className="text-sm font-medium text-slate-500">
+                  Bạn đã nhập sai quá nhiều lần. <br/>Vui lòng đợi để thử lại.
+                </p>
+              </div>
+            ) : (
+              currentQuestion.options.map((option, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => handleOptionClick(option)}
+                  disabled={selectedOption !== null && selectedOption !== option && error}
+                  className={`w-full rounded-2xl border-2 px-5 py-4 text-left text-lg font-medium transition-all outline-none ${
+                    selectedOption === option
+                      ? option === currentQuestion.correctAnswer
+                        ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                        : error
+                          ? 'border-red-200 bg-red-50 text-red-700'
+                          : 'border-violet-400 bg-violet-50 text-violet-700'
+                      : 'border-slate-100 bg-slate-50 text-slate-700 hover:border-violet-200 hover:bg-white active:scale-[0.98]'
+                  }`}
+                >
+                  {option}
+                </button>
+              ))
+            )}
 
             <AnimatePresence mode="wait">
               {error && (
