@@ -10,53 +10,53 @@ const SECURITY_QUESTIONS = [
   {
     id: 1,
     question: "Tên đầy đủ của chủ app là gì?",
-    answers: ["nguyễn phương thảo", "nguyen phuong thao", "phương thảo", "phuong thao"],
-    hint: "Họ và tên lót đầy đủ nhé"
+    options: ["Nguyễn Phương Thảo", "Nguyễn Thu Thảo", "Trần Phương Thảo", "Nguyễn Thị Thảo"],
+    correctAnswer: "Nguyễn Phương Thảo"
   },
   {
     id: 2,
-    question: "Thảo sinh ngày tháng năm nào? (dd/mm/yyyy)",
-    answers: ["12/02/2002", "12/2/2002", "12-02-2002", "12-2-2002", "12/02/02"],
-    hint: "Định dạng dd/mm/yyyy"
+    question: "Thảo sinh ngày tháng năm nào?",
+    options: ["12/02/2002", "26/03/1995", "12/12/2002", "02/12/2002"],
+    correctAnswer: "12/02/2002"
   },
   {
     id: 3,
     question: "Gia đình Thảo có bao nhiêu người?",
-    answers: ["5", "năm"],
-    hint: "Một con số"
+    options: ["3 người", "4 người", "5 người", "6 người"],
+    correctAnswer: "5 người"
   },
   {
     id: 4,
     question: "Anh trai của Thảo tên là gì?",
-    answers: ["thiên", "nguyễn thiên"],
-    hint: "Tên 1 người anh"
+    options: ["Thiên", "Thuận", "Duy", "Hải"],
+    correctAnswer: "Thiên"
   },
   {
     id: 5,
     question: "Em út của Thảo tên là gì?",
-    answers: ["thuận", "nguyễn thuận"],
-    hint: "Tên người em út"
+    options: ["Thiên", "Thuận", "Minh", "Hùng"],
+    correctAnswer: "Thuận"
   },
   {
     id: 6,
     question: "Người yêu của Thảo tên là gì?",
-    answers: ["nguyen huu duy", "nguyễn hữu duy", "duy", "nguyen huu duy"],
-    hint: "Họ và tên đầy đủ của anh ấy"
+    options: ["Nguyễn Hữu Duy", "Trần Hữu Duy", "Nguyễn Đình Duy", "Lê Hữu Duy"],
+    correctAnswer: "Nguyễn Hữu Duy"
   },
   {
     id: 7,
-    question: "Người yêu của Thảo sinh ngày tháng năm nào? (dd/mm/yyyy)",
-    answers: ["26/03/1995", "26/3/1995", "26-03-1995", "26-3-1995"],
-    hint: "Ngày sinh của anh Duy"
+    question: "Người yêu của Thảo sinh ngày tháng năm nào?",
+    options: ["26/03/1995", "12/02/2002", "26/05/1995", "23/06/1995"],
+    correctAnswer: "26/03/1995"
   },
 ];
 
 export default function SecurityGuard({ children }: SecurityGuardProps) {
   const [isUnlocked, setIsUnlocked] = useState<boolean | null>(null);
   const [currentQuestion, setCurrentQuestion] = useState(SECURITY_QUESTIONS[0]);
-  const [answer, setAnswer] = useState('');
   const [error, setError] = useState(false);
   const [shake, setShake] = useState(false);
+  const [selectedOption, setSelectedOption] = useState<string | null>(null);
 
   useEffect(() => {
     const savedStatus = localStorage.getItem('app_unlocked');
@@ -68,24 +68,30 @@ export default function SecurityGuard({ children }: SecurityGuardProps) {
       setIsUnlocked(false);
       // Pick a random question
       const randomIdx = Math.floor(Math.random() * SECURITY_QUESTIONS.length);
-      setCurrentQuestion(SECURITY_QUESTIONS[randomIdx]);
+      // Shuffle options
+      const question = SECURITY_QUESTIONS[randomIdx];
+      const shuffledOptions = [...question.options].sort(() => Math.random() - 0.5);
+      setCurrentQuestion({ ...question, options: shuffledOptions });
     }
   }, []);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const normalizedAnswer = answer.trim().toLowerCase();
-    
-    if (currentQuestion.answers.includes(normalizedAnswer)) {
-      setIsUnlocked(true);
-      // Keep unlocked for 7 days
-      localStorage.setItem('app_unlocked', 'true');
-      localStorage.setItem('app_unlocked_expiry', (Date.now() + 7 * 24 * 60 * 60 * 1000).toString());
+  const handleOptionClick = (option: string) => {
+    setSelectedOption(option);
+    if (option === currentQuestion.correctAnswer) {
+      setTimeout(() => {
+        setIsUnlocked(true);
+        // Keep unlocked for 7 days
+        localStorage.setItem('app_unlocked', 'true');
+        localStorage.setItem('app_unlocked_expiry', (Date.now() + 7 * 24 * 60 * 60 * 1000).toString());
+      }, 300);
     } else {
       setError(true);
       setShake(true);
       setTimeout(() => setShake(false), 500);
-      setAnswer('');
+      setTimeout(() => {
+        setError(false);
+        setSelectedOption(null);
+      }, 2000);
     }
   };
 
@@ -254,53 +260,40 @@ export default function SecurityGuard({ children }: SecurityGuardProps) {
             {currentQuestion.question}
           </h2>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="relative">
-              <input
-                autoFocus
-                type="text"
-                value={answer}
-                onChange={(e) => {
-                  setAnswer(e.target.value);
-                  setError(false);
-                }}
-                placeholder="Nhập câu trả lời..."
-                className={`w-full rounded-2xl border-2 bg-slate-50 px-5 py-4 text-lg font-medium transition-all outline-none ${
-                  error 
-                    ? 'border-red-100 bg-red-50/50 text-red-900 placeholder:text-red-300 focus:border-red-200' 
-                    : 'border-slate-100 focus:border-violet-200 focus:bg-white focus:ring-4 focus:ring-violet-50'
-                }`}
-              />
+          <div className="space-y-3">
+            {currentQuestion.options.map((option, idx) => (
               <button
-                type="submit"
-                className="absolute right-2 top-2 flex h-12 w-12 items-center justify-center rounded-xl bg-violet-600 text-white shadow-lg shadow-violet-100 transition-transform active:scale-95 hover:bg-violet-700"
+                key={idx}
+                onClick={() => handleOptionClick(option)}
+                disabled={selectedOption !== null && selectedOption !== option && error}
+                className={`w-full rounded-2xl border-2 px-5 py-4 text-left text-lg font-medium transition-all outline-none ${
+                  selectedOption === option
+                    ? option === currentQuestion.correctAnswer
+                      ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                      : error
+                        ? 'border-red-200 bg-red-50 text-red-700'
+                        : 'border-violet-400 bg-violet-50 text-violet-700'
+                    : 'border-slate-100 bg-slate-50 text-slate-700 hover:border-violet-200 hover:bg-white active:scale-[0.98]'
+                }`}
               >
-                <ChevronRight className="h-6 w-6" />
+                {option}
               </button>
-            </div>
+            ))}
 
             <AnimatePresence mode="wait">
-              {error ? (
+              {error && (
                 <motion.div 
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: 'auto' }}
                   exit={{ opacity: 0, height: 0 }}
-                  className="flex items-center gap-2 rounded-xl bg-red-50 p-3 text-sm font-medium text-red-600"
+                  className="flex items-center gap-2 rounded-xl bg-red-50 p-3 text-sm font-medium text-red-600 mt-2"
                 >
                   <AlertCircle className="h-4 w-4 shrink-0" />
                   <span>Sai rồi bạn ơi! Vui lòng thử lại.</span>
                 </motion.div>
-              ) : (
-                <motion.div 
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  className="px-1 text-xs text-slate-400"
-                >
-                  Gợi ý: {currentQuestion.hint}
-                </motion.div>
               )}
             </AnimatePresence>
-          </form>
+          </div>
         </motion.div>
 
         <div className="mt-8 flex items-center justify-center gap-3 text-slate-400">

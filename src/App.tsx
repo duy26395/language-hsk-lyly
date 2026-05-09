@@ -416,7 +416,7 @@ export default function App() {
               repeat: Infinity,
               ease: "easeInOut"
             }}
-            className="absolute -top-[10%] -left-[10%] h-[60%] w-[60%] rounded-full bg-gradient-to-br from-violet-300/40 to-fuchsia-300/40 blur-[100px]"
+            className="absolute -top-[10%] -left-[10%] h-[60%] w-[60%] rounded-full bg-gradient-to-br from-violet-400/80 to-fuchsia-400/80 blur-[100px]"
           />
           <motion.div
             animate={{
@@ -430,7 +430,7 @@ export default function App() {
               repeat: Infinity,
               ease: "easeInOut"
             }}
-            className="absolute -bottom-[10%] -right-[10%] h-[70%] w-[70%] rounded-full bg-gradient-to-tr from-emerald-200/40 to-cyan-200/40 blur-[100px]"
+            className="absolute -bottom-[10%] -right-[10%] h-[70%] w-[70%] rounded-full bg-gradient-to-tr from-emerald-300/80 to-cyan-300/80 blur-[100px]"
           />
           <motion.div
             animate={{
@@ -443,7 +443,7 @@ export default function App() {
               repeat: Infinity,
               ease: "easeInOut"
             }}
-            className="absolute top-[20%] right-[15%] h-[45%] w-[45%] rounded-full bg-gradient-to-bl from-blue-200/40 to-indigo-200/40 blur-[80px]"
+            className="absolute top-[20%] right-[15%] h-[45%] w-[45%] rounded-full bg-gradient-to-bl from-blue-300/80 to-indigo-300/80 blur-[80px]"
           />
           <motion.div
             animate={{
@@ -457,7 +457,7 @@ export default function App() {
               ease: "easeInOut",
               delay: 2
             }}
-            className="absolute bottom-[20%] left-[15%] h-[40%] w-[40%] rounded-full bg-gradient-to-tr from-rose-200/30 to-orange-200/30 blur-[90px]"
+            className="absolute bottom-[20%] left-[15%] h-[40%] w-[40%] rounded-full bg-gradient-to-tr from-rose-300/70 to-orange-300/70 blur-[90px]"
           />
 
 

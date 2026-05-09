@@ -14,18 +14,19 @@
   html {
     min-height: 100%;
     width: 100%;
-    background: #f8fafc;
+    background: linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%);
     overflow-x: hidden;
   }
 
   body {
     min-height: 100%;
     width: 100%;
-    background: #f8fafc;
+    background: linear-gradient(135deg, #e0c3fc 0%, #8ec5fc 100%);
     color: #0f172a;
     -webkit-tap-highlight-color: transparent;
     overflow-x: hidden;
   }
+
 
 
   #root {

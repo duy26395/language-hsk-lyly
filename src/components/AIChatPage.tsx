@@ -432,13 +432,15 @@ export default function AIChatPage({ selectedModel, fadeVariants }: AIChatPagePr
       exit="exit"
       className="mx-auto flex h-full min-h-0 w-full max-w-5xl flex-col overflow-hidden p-3 pb-2 sm:p-4 md:p-6 md:pb-6"
     >
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-white/50 glass shadow-[0_32px_64px_-16px_rgba(0,0,0,0.15)] backdrop-blur-3xl relative">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-white bg-white/95 shadow-xl backdrop-blur-3xl relative">
+
         {/* Subtle decorative sparkles in corners */}
         <div className="absolute top-0 right-0 p-12 opacity-[0.03] pointer-events-none">
           <Sparkles size={140} />
         </div>
 
-        <div className="flex items-center justify-between gap-3 border-b border-white/30 bg-white/40 px-4 py-3 md:px-6 backdrop-blur-md">
+        <div className="flex items-center justify-between gap-3 border-b border-slate-100 bg-white/40 px-4 py-3 md:px-6 backdrop-blur-md">
+
 
           <div className="flex min-w-0 items-center gap-3">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-slate-900 text-white shadow-sm">
@@ -557,7 +559,8 @@ export default function AIChatPage({ selectedModel, fadeVariants }: AIChatPagePr
           )}
         </div>
 
-        <div className="border-t border-white/30 bg-white/40 p-3 md:p-4 backdrop-blur-md">
+        <div className="border-t border-slate-100 bg-white/40 p-3 md:p-4 backdrop-blur-md">
+
 
           <div className="relative flex items-end gap-2">
             <textarea

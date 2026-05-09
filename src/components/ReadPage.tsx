@@ -62,7 +62,9 @@ export default function ReadPage({
       exit="exit"
       className="mx-auto flex min-h-full w-full max-w-4xl flex-col gap-5 p-4 sm:p-5 md:gap-6 md:p-10"
     >
-      <div className="flex flex-col gap-3 print:hidden sm:flex-row sm:items-center sm:justify-between">
+      <div className="rounded-[2rem] bg-white p-6 md:p-8 shadow-xl min-h-full flex flex-col">
+        <div className="flex flex-col gap-3 print:hidden sm:flex-row sm:items-center sm:justify-between mb-5">
+
         <h1 className="text-2xl font-bold tracking-tight text-slate-800 md:text-3xl">Reading Area</h1>
         {readText && (
           <button
@@ -141,9 +143,11 @@ export default function ReadPage({
 
         </div>
       )}
+      </div>
     </motion.div>
   );
 }
+
 
 function SavePassageButton({ text, onSave }: { text: string; onSave: (text: string) => Promise<boolean> }) {
   const [saved, setSaved] = useState(false);

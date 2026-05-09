@@ -205,8 +205,9 @@ export default function NotebookPage({
       initial="hidden"
       animate="visible"
       exit="exit"
-      className="mx-auto flex min-h-full w-full max-w-6xl flex-col gap-5 p-4 print:bg-white print:p-0 sm:p-5 md:gap-6 md:p-10"
+      className="mx-auto flex h-full w-full max-w-7xl flex-col p-4 sm:p-5 md:p-10"
     >
+      <div className="min-w-0 rounded-[2rem] bg-white/95 p-4 shadow-xl min-h-full flex flex-col gap-6 backdrop-blur-3xl border border-white sm:p-6 md:p-8">
       <AnimatePresence>
         {notebookToast && (
           <motion.div
@@ -296,7 +297,7 @@ export default function NotebookPage({
         </div>
       </section>
 
-      <section className="grid min-w-0 gap-6 xl:grid-cols-[1.55fr_0.95fr]">
+      <section className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1.55fr)_minmax(280px,0.95fr)]">
         <div className="min-w-0 space-y-5">
           <div className={`${panelClass} p-4 sm:p-5`}>
             <div className="flex flex-col gap-4">
@@ -402,7 +403,7 @@ export default function NotebookPage({
           )}
         </div>
 
-        <aside className="space-y-5">
+        <aside className="min-w-0 space-y-5">
           <div className={`${panelClass} p-5 sm:p-6`}>
             <div className="flex items-start justify-between gap-4">
               <div>
@@ -435,6 +436,7 @@ export default function NotebookPage({
           </div>
         </aside>
       </section>
+      </div>
     </motion.div>
   );
 }
@@ -542,14 +544,14 @@ function WordCard({
           <p className="mt-2 text-sm italic text-slate-500">{item.explanation.exampleMeaning}</p>
         </div>
 
-        <div className="flex items-center justify-between gap-3">
-          <div className="inline-flex items-center gap-2 rounded-full bg-slate-50 px-3 py-1 text-xs font-medium text-slate-500">
+        <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="inline-flex min-w-0 items-center gap-2 rounded-full bg-slate-50 px-3 py-1 text-xs font-medium text-slate-500">
             <FileText className="h-3.5 w-3.5" />
-            Ready to reopen in Reading
+            <span className="truncate">Ready to reopen in Reading</span>
           </div>
           <button
             onClick={() => onOpenPassage(item.word)}
-            className="inline-flex items-center gap-2 rounded-full bg-violet-600 px-4 py-2 text-sm font-bold text-white shadow-lg shadow-violet-200 transition-all hover:bg-violet-700 active:scale-[0.98]"
+            className="inline-flex shrink-0 items-center justify-center gap-2 rounded-full bg-violet-600 px-4 py-2 text-sm font-bold text-white shadow-lg shadow-violet-200 transition-all hover:bg-violet-700 active:scale-[0.98]"
           >
             <BookOpen className="h-4 w-4" />
             Open
@@ -602,14 +604,14 @@ function PassageCard({
 
         <p className="chinese text-[15px] leading-8 text-slate-700 line-clamp-5">{item.text}</p>
 
-        <div className="flex items-center justify-between gap-3">
-          <div className="inline-flex items-center gap-2 rounded-full bg-slate-50 px-3 py-1 text-xs font-medium text-slate-500">
+        <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="inline-flex min-w-0 items-center gap-2 rounded-full bg-slate-50 px-3 py-1 text-xs font-medium text-slate-500">
             <FileText className="h-3.5 w-3.5" />
-            Ready to reopen in Reading
+            <span className="truncate">Ready to reopen in Reading</span>
           </div>
           <button
             onClick={() => onOpenPassage(item.text)}
-            className="inline-flex items-center gap-2 rounded-full bg-sky-600 px-4 py-2 text-sm font-bold text-white shadow-lg shadow-sky-200 transition-all hover:bg-sky-700 active:scale-[0.98]"
+            className="inline-flex shrink-0 items-center justify-center gap-2 rounded-full bg-sky-600 px-4 py-2 text-sm font-bold text-white shadow-lg shadow-sky-200 transition-all hover:bg-sky-700 active:scale-[0.98]"
           >
             <BookOpen className="h-4 w-4" />
             Open
@@ -656,14 +658,14 @@ function SavedNoteCard({
           </button>
         </div>
         <p className="whitespace-pre-wrap text-[15px] leading-7 text-slate-700">{item.content}</p>
-        <div className="flex items-center justify-between gap-3">
-          <div className="inline-flex items-center gap-2 rounded-full bg-slate-50 px-3 py-1 text-xs font-medium text-slate-500">
+        <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="inline-flex min-w-0 items-center gap-2 rounded-full bg-slate-50 px-3 py-1 text-xs font-medium text-slate-500">
             <FileText className="h-3.5 w-3.5" />
-            Ready to reopen in Reading
+            <span className="truncate">Ready to reopen in Reading</span>
           </div>
           <button
             onClick={() => onOpenPassage(item.content)}
-            className="inline-flex items-center gap-2 rounded-full bg-rose-600 px-4 py-2 text-sm font-bold text-white shadow-lg shadow-rose-200 transition-all hover:bg-rose-700 active:scale-[0.98]"
+            className="inline-flex shrink-0 items-center justify-center gap-2 rounded-full bg-rose-600 px-4 py-2 text-sm font-bold text-white shadow-lg shadow-rose-200 transition-all hover:bg-rose-700 active:scale-[0.98]"
           >
             <BookOpen className="h-4 w-4" />
             Open

@@ -16,7 +16,7 @@ import {
   Sparkles,
   Volume2,
 } from 'lucide-react';
-import { AIModel, WordExplanation, explainWord, readAloud } from '../lib/ai';
+import { AIModel, WordExplanation, explainWord } from '../lib/ai';
 
 interface SearchPageProps {
   selectedModel: AIModel;
@@ -124,6 +124,7 @@ export default function SearchPage({
   const [explanation, setExplanation] = useState<WordExplanation | null>(null);
   const [history, setHistory] = useState<string[]>([]);
   const [error, setError] = useState('');
+  const [speakingWord, setSpeakingWord] = useState(false);
   const requestSeqRef = useRef(0);
 
   const handleSearch = async (event?: React.FormEvent, overrideQuery?: string) => {
@@ -149,6 +150,29 @@ export default function SearchPage({
     setLoading(false);
   };
 
+  const handleSpeakWord = (word: string) => {
+    if (speakingWord) {
+      window.speechSynthesis?.cancel();
+      setSpeakingWord(false);
+      return;
+    }
+
+    if (!window.speechSynthesis) return;
+
+    window.speechSynthesis.cancel();
+    setSpeakingWord(true);
+    const utterance = new SpeechSynthesisUtterance(word);
+    utterance.lang = 'zh-CN';
+    utterance.rate = 0.9;
+    utterance.onend = () => setSpeakingWord(false);
+    utterance.onerror = () => setSpeakingWord(false);
+    window.speechSynthesis.speak(utterance);
+
+    window.setTimeout(() => {
+      if (!window.speechSynthesis.speaking) setSpeakingWord(false);
+    }, 1500);
+  };
+
   return (
     <motion.div
       key="search"
@@ -158,7 +182,9 @@ export default function SearchPage({
       exit="exit"
       className="mx-auto flex min-h-full w-full max-w-6xl flex-col gap-5 p-4 sm:p-5 md:gap-6 md:p-10"
     >
-      <div className="flex flex-col gap-3 print:hidden sm:flex-row sm:items-end sm:justify-between">
+      <div className="rounded-[2rem] bg-white/95 p-6 md:p-8 shadow-xl min-h-full flex flex-col gap-5 md:gap-6 backdrop-blur-3xl border border-white">
+        <div className="flex flex-col gap-3 print:hidden sm:flex-row sm:items-end sm:justify-between">
+
         <div className="min-w-0">
           <h1 className="text-2xl font-bold tracking-tight text-slate-800 md:text-3xl">
             Từ điển Hanzi
@@ -255,10 +281,6 @@ export default function SearchPage({
           >
             <div className="min-w-0 space-y-4">
               <div className="glass rounded-2xl p-5 shadow-xl md:p-6 transition-all hover:bg-white/50 relative overflow-hidden group">
-                <div className="absolute top-0 right-0 p-8 opacity-[0.03] group-hover:opacity-[0.06] transition-opacity">
-                  <BookOpen size={120} className="-rotate-12" />
-                </div>
-
                 <div className="flex min-w-0 items-start justify-between gap-4">
                   <div className="min-w-0">
                     <div className="mb-2 flex flex-wrap items-center gap-3">
@@ -276,12 +298,12 @@ export default function SearchPage({
                   </div>
                   <button
                     type="button"
-                    onClick={() => readAloud(explanation.word)}
-                    className="shrink-0 rounded-xl bg-slate-900 p-3 text-white shadow-sm transition-colors hover:bg-slate-700"
-                    aria-label="Đọc từ"
-                    title="Đọc từ"
+                    onClick={() => void handleSpeakWord(explanation.word)}
+                    className="shrink-0 rounded-xl bg-slate-900 p-3 text-white shadow-sm transition-colors hover:bg-slate-700 z-index-1"
+                    aria-label={speakingWord ? 'Dừng phát âm' : 'Đọc từ'}
+                    title={speakingWord ? 'Dừng phát âm' : 'Đọc từ'}
                   >
-                    <Volume2 className="h-5 w-5" />
+                    {speakingWord ? <Loader2 className="h-5 w-5 animate-spin" /> : <Volume2 className="h-5 w-5" />}
                   </button>
                 </div>
 
@@ -485,6 +507,7 @@ export default function SearchPage({
           </motion.div>
         )}
       </AnimatePresence>
+      </div>
     </motion.div>
   );
 }

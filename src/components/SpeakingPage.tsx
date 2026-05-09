@@ -410,7 +410,8 @@ export default function SpeakingPage({ selectedModel, fadeVariants }: SpeakingPa
         </div>
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[1.25rem] border border-white/50 glass shadow-[0_32px_64px_-16px_rgba(0,0,0,0.15)] backdrop-blur-3xl md:rounded-[2rem] relative">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[1.25rem] border border-white bg-white/95 shadow-xl backdrop-blur-3xl md:rounded-[2rem] relative">
+
 
 
         <div className="absolute top-0 right-0 p-10 opacity-[0.03] pointer-events-none">
@@ -559,7 +560,8 @@ export default function SpeakingPage({ selectedModel, fadeVariants }: SpeakingPa
           </div>
         </div>
 
-        <div className="border-t border-white/50 bg-white/40 p-4 md:p-5 backdrop-blur-md">
+        <div className="border-t border-slate-100 bg-white/40 p-4 md:p-5 backdrop-blur-md">
+
 
 
 
