@@ -247,6 +247,7 @@ app.post('/api/speak', async (req, res) => {
     return res.json({
       userText: result.userText,
       assistantText: result.assistantText,
+      feedback: result.feedback,
       audio: result.audioBuffer.toString('base64'),
       mimeType: result.mimeType,
       ttsProvider: result.ttsProvider,

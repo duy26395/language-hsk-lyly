@@ -1,10 +1,19 @@
 /**
- * Voice pipeline client — calls the backend Groq STT → LLM → TTS pipeline.
+ * Voice pipeline client that calls the backend Groq STT -> LLM -> TTS pipeline.
  */
+
+export interface TeacherFeedback {
+  spokenReply: string;
+  correction: string | null;
+  betterSentence: string | null;
+  vocabTips: string[];
+  followUpQuestion: string | null;
+}
 
 interface SpeakResult {
   userText: string;
   assistantText: string;
+  feedback?: TeacherFeedback;
   /** base64 encoded audio */
   audio: string;
   mimeType?: string;
@@ -80,7 +89,7 @@ export async function textToSpeech(text: string, ttsVoice: string = 'zh-CN-Xiaox
 }
 
 
-// ─── Audio Recording Helper ──────────────────────────────────────────────────
+// Audio recording helper
 
 export class AudioPlayer {
   private currentAudio: HTMLAudioElement | null = null;

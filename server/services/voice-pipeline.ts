@@ -64,6 +64,22 @@ interface ChatMessage {
   content: string;
 }
 
+export interface TeacherFeedback {
+  spokenReply: string;
+  correction: string | null;
+  betterSentence: string | null;
+  vocabTips: string[];
+  followUpQuestion: string | null;
+}
+
+const EMPTY_FEEDBACK: TeacherFeedback = {
+  spokenReply: '',
+  correction: null,
+  betterSentence: null,
+  vocabTips: [],
+  followUpQuestion: null,
+};
+
 export async function chatWithGroq(
   userMessage: string,
   history: { role: 'user' | 'assistant'; content: string }[],
@@ -109,9 +125,62 @@ Return only the final teacher reply in Chinese.`;
   return null;
 }
 
+export async function chatWithGroqFeedback(
+  userMessage: string,
+  history: { role: 'user' | 'assistant'; content: string }[],
+  hskLevel: string,
+): Promise<TeacherFeedback | null> {
+  const systemPrompt = `You are a Chinese speaking coach for Vietnamese HSK learners.
+Return ONLY valid JSON. Do not include markdown, analysis, or <think> tags.
+The JSON object must have exactly these keys:
+{
+  "spokenReply": "Simplified Chinese only. 1-2 short teacher sentences suitable for ${hskLevel}. Include a natural follow-up question when helpful.",
+  "correction": "Vietnamese. One concise correction note, or empty string if the learner's sentence is acceptable.",
+  "betterSentence": "Simplified Chinese. A more natural corrected version of the learner's sentence, or empty string.",
+  "vocabTips": ["Vietnamese. 1-3 short notes about useful Chinese words or patterns from this turn."],
+  "followUpQuestion": "Simplified Chinese. A short question to continue the conversation, or empty string if already included in spokenReply."
+}
+Keep the coaching practical and friendly. Do not over-correct.`;
+
+  const messages: ChatMessage[] = [
+    { role: 'system', content: systemPrompt },
+    ...history,
+    { role: 'user', content: userMessage },
+  ];
+
+  const client = getGroqOpenAI();
+  let lastError: any = null;
+
+  for (const model of LLM_MODELS) {
+    try {
+      const response = await client.chat.completions.create({
+        model,
+        messages,
+        max_tokens: 450,
+        temperature: 0.4,
+      });
+
+      const content = response.choices[0]?.message?.content;
+      if (!content) continue;
+
+      const feedback = parseTeacherFeedback(content);
+      if (feedback?.spokenReply) {
+        return feedback;
+      }
+    } catch (e: any) {
+      lastError = e;
+      console.warn(`Groq feedback model ${model} failed: ${e.message}`);
+    }
+  }
+
+  console.error('All Groq feedback models failed:', lastError);
+  return null;
+}
+
 export interface SpeakPipelineResult {
   userText: string;
   assistantText: string;
+  feedback: TeacherFeedback;
   audioBuffer: Buffer;
   mimeType: string;
   ttsProvider: string;
@@ -237,17 +306,21 @@ export async function runSpeakPipeline(
     return null;
   }
 
-  const assistantText = await chatWithGroq(userText, history, hskLevel);
-  if (!assistantText) {
+  const feedback = await chatWithGroqFeedback(userText, history, hskLevel);
+  if (!feedback?.spokenReply) {
     console.warn('LLM returned empty response');
     return null;
   }
 
+  const assistantText = feedback.followUpQuestion && !feedback.spokenReply.includes(feedback.followUpQuestion)
+    ? `${feedback.spokenReply} ${feedback.followUpQuestion}`
+    : feedback.spokenReply;
   const resultAudio = await synthesizeChineseSpeech(assistantText, ttsVoice);
 
   return {
     userText,
     assistantText,
+    feedback,
     audioBuffer: resultAudio.audioBuffer,
     mimeType: resultAudio.mimeType,
     ttsProvider: resultAudio.provider,
@@ -271,6 +344,57 @@ function stripThinkBlocks(text: string): string {
   return text
     .replace(/<think>[\s\S]*?<\/think>/gi, '')
     .replace(/<think>[\s\S]*$/gi, '');
+}
+
+function parseTeacherFeedback(content: string): TeacherFeedback | null {
+  const cleaned = stripThinkBlocks(content)
+    .replace(/```(?:json)?/gi, '')
+    .replace(/```/g, '')
+    .trim();
+
+  const jsonStart = cleaned.indexOf('{');
+  const jsonEnd = cleaned.lastIndexOf('}');
+  const candidate = jsonStart >= 0 && jsonEnd > jsonStart
+    ? cleaned.slice(jsonStart, jsonEnd + 1)
+    : cleaned;
+
+  try {
+    const parsed = JSON.parse(candidate);
+    const spokenReply = normalizeText(parsed?.spokenReply);
+
+    if (!spokenReply) {
+      return null;
+    }
+
+    return {
+      spokenReply,
+      correction: normalizeNullableText(parsed?.correction),
+      betterSentence: normalizeNullableText(parsed?.betterSentence),
+      vocabTips: normalizeTextList(parsed?.vocabTips).slice(0, 3),
+      followUpQuestion: normalizeNullableText(parsed?.followUpQuestion),
+    };
+  } catch {
+    const fallbackReply = cleaned.trim();
+    return fallbackReply
+      ? { ...EMPTY_FEEDBACK, spokenReply: fallbackReply }
+      : null;
+  }
+}
+
+function normalizeText(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function normalizeNullableText(value: unknown): string | null {
+  const text = normalizeText(value);
+  return text || null;
+}
+
+function normalizeTextList(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map(normalizeText)
+    .filter(Boolean);
 }
 
 function createThinkTagFilter() {

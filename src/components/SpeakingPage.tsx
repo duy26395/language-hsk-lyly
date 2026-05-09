@@ -3,17 +3,27 @@ import { motion } from 'framer-motion';
 import { Languages, Loader2, Mic, MicOff, RotateCcw, User, Bot, Volume2 } from 'lucide-react';
 import { io, Socket } from 'socket.io-client';
 import { AIModel, translateToVietnamese } from '../lib/ai';
-import { AudioPlayer, AudioRecorder, speakToTeacher, textToSpeech } from '../lib/voice';
+import { AudioPlayer, AudioRecorder, speakToTeacher, textToSpeech, type TeacherFeedback } from '../lib/voice';
 
 interface Message {
   role: 'user' | 'assistant';
   content: string;
+  feedback?: TeacherFeedback;
 }
 
 interface SpeakingPageProps {
   selectedModel: AIModel;
   fadeVariants: any;
 }
+
+type PipelineStatus = 'idle' | 'recording' | 'recognizing' | 'thinking' | 'speaking';
+
+const pipelineStatusText: Record<Exclude<PipelineStatus, 'idle'>, string> = {
+  recording: 'Đang nghe...',
+  recognizing: 'Đang nhận diện giọng nói...',
+  thinking: 'Đang chuẩn bị phản hồi...',
+  speaking: 'Đang phát âm thanh...',
+};
 
 function canUseRealtimeVoice() {
   if (typeof window === 'undefined') return false;
@@ -27,6 +37,7 @@ export default function SpeakingPage({ selectedModel, fadeVariants }: SpeakingPa
   const [hskLevel, setHskLevel] = useState('HSK 3');
   const [ttsVoice, setTtsVoice] = useState('zh-CN-XiaoxiaoNeural');
   const [voiceError, setVoiceError] = useState('');
+  const [pipelineStatus, setPipelineStatus] = useState<PipelineStatus>('idle');
   const [translations, setTranslations] = useState<Record<string, string>>({});
   const [translatingKey, setTranslatingKey] = useState<string | null>(null);
   const [readingKey, setReadingKey] = useState<string | null>(null);
@@ -58,8 +69,16 @@ export default function SpeakingPage({ selectedModel, fadeVariants }: SpeakingPa
     });
     socketRef.current = socket;
 
+    socket.on('processing_stt', () => {
+      setPipelineStatus('recognizing');
+    });
+
     socket.on('user_text', (data) => {
       setMessages((prev) => [...prev, { role: 'user', content: data.text }]);
+    });
+
+    socket.on('processing_llm', () => {
+      setPipelineStatus('thinking');
     });
 
     socket.on('llm_text_chunk', (data) => {
@@ -73,17 +92,24 @@ export default function SpeakingPage({ selectedModel, fadeVariants }: SpeakingPa
     });
 
     socket.on('audio_chunk', (data) => {
+      setPipelineStatus('speaking');
       audioQueueRef.current.push({ audio: data.audio, mimeType: data.mimeType });
       void processAudioQueue();
     });
 
+    socket.on('tts_error', () => {
+      setVoiceError('Không thể phát một đoạn âm thanh. Bạn vẫn có thể đọc phản hồi trên màn hình.');
+    });
+
     socket.on('pipeline_complete', () => {
       setLoading(false);
+      setPipelineStatus('idle');
     });
 
     socket.on('error', (data) => {
       setVoiceError(data.message);
       setLoading(false);
+      setPipelineStatus('idle');
     });
 
     return () => {
@@ -158,11 +184,13 @@ export default function SpeakingPage({ selectedModel, fadeVariants }: SpeakingPa
     try {
       setVoiceError('');
       isPressingRef.current = true;
+      setPipelineStatus('recording');
       setIsRecording(true);
       await recorderRef.current?.start();
     } catch {
       isPressingRef.current = false;
       setIsRecording(false);
+      setPipelineStatus('idle');
       setVoiceError('Lỗi khởi động Voice input. Vui lòng thử lại.');
     }
   };
@@ -181,10 +209,12 @@ export default function SpeakingPage({ selectedModel, fadeVariants }: SpeakingPa
       const audioBlob = await recorderRef.current.stop();
       if (audioBlob.size < 1000) {
         setVoiceError('Âm thanh quá ngắn, vui lòng nói rõ hơn.');
+        setPipelineStatus('idle');
         return;
       }
       void processAudioInput(audioBlob);
     } catch {
+      setPipelineStatus('idle');
       setVoiceError('Không thể thu âm, vui lòng thử lại.');
     }
   };
@@ -192,6 +222,7 @@ export default function SpeakingPage({ selectedModel, fadeVariants }: SpeakingPa
   const processAudioInput = async (audioBlob: Blob) => {
     if (loading) return;
     setLoading(true);
+    setPipelineStatus('recognizing');
     setVoiceError('');
     stopAllAudio();
 
@@ -217,17 +248,20 @@ export default function SpeakingPage({ selectedModel, fadeVariants }: SpeakingPa
       if (!result) {
         setVoiceError('Không xử lý được âm thanh. Vui lòng thử lại.');
         setLoading(false);
+        setPipelineStatus('idle');
         return;
       }
 
       setMessages((prev) => [
         ...prev,
         { role: 'user', content: result.userText },
-        { role: 'assistant', content: result.assistantText },
+        { role: 'assistant', content: result.assistantText, feedback: result.feedback },
       ]);
+      setPipelineStatus('speaking');
       await audioPlayerRef.current.playBase64(result.audio, result.mimeType);
       if (isDisposedRef.current) return;
       setLoading(false);
+      setPipelineStatus('idle');
     } catch (e) {
       console.error(e);
       setVoiceError(
@@ -236,6 +270,7 @@ export default function SpeakingPage({ selectedModel, fadeVariants }: SpeakingPa
           : 'Không xử lý được âm thanh. Vui lòng thử lại.',
       );
       setLoading(false);
+      setPipelineStatus('idle');
     }
   };
 
@@ -293,10 +328,18 @@ export default function SpeakingPage({ selectedModel, fadeVariants }: SpeakingPa
   };
 
   const resetSession = () => {
+    stopAllAudio();
     setMessages([]);
     setTranslations({});
     setVoiceError('');
+    setPipelineStatus('idle');
   };
+
+  const statusText = isRecording
+    ? pipelineStatusText.recording
+    : pipelineStatus === 'idle'
+      ? 'Nhấn giữ micro để luyện nói'
+      : pipelineStatusText[pipelineStatus];
 
   return (
     <motion.div
@@ -348,6 +391,13 @@ export default function SpeakingPage({ selectedModel, fadeVariants }: SpeakingPa
               const messageKey = `${message.role}-${index}-${message.content}`;
               const translation = translations[messageKey];
               const isTranslating = translatingKey === messageKey;
+              const feedback = message.role === 'assistant' ? message.feedback : undefined;
+              const hasFeedback = Boolean(
+                feedback?.correction ||
+                feedback?.betterSentence ||
+                feedback?.vocabTips?.length ||
+                feedback?.followUpQuestion,
+              );
 
               return (
                 <div
@@ -377,6 +427,37 @@ export default function SpeakingPage({ selectedModel, fadeVariants }: SpeakingPa
                         }`}
                       >
                         <span className="font-semibold">Dịch:</span> {translation}
+                      </div>
+                    )}
+                    {hasFeedback && (
+                      <div className="mt-2 space-y-1.5 border-t border-violet-100 pt-2 text-xs leading-relaxed text-slate-600">
+                        {feedback?.correction && (
+                          <p>
+                            <span className="font-bold text-violet-600">Sửa nhẹ:</span> {feedback.correction}
+                          </p>
+                        )}
+                        {feedback?.betterSentence && (
+                          <p>
+                            <span className="font-bold text-violet-600">Tự nhiên hơn:</span>{' '}
+                            <span lang="zh-CN">{feedback.betterSentence}</span>
+                          </p>
+                        )}
+                        {feedback?.vocabTips?.length ? (
+                          <div>
+                            <span className="font-bold text-violet-600">Từ đáng nhớ:</span>
+                            <ul className="mt-1 list-disc space-y-1 pl-4">
+                              {feedback.vocabTips.map((tip, tipIndex) => (
+                                <li key={`${messageKey}-tip-${tipIndex}`}>{tip}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        ) : null}
+                        {feedback?.followUpQuestion && !message.content.includes(feedback.followUpQuestion) && (
+                          <p>
+                            <span className="font-bold text-violet-600">Câu hỏi tiếp:</span>{' '}
+                            <span lang="zh-CN">{feedback.followUpQuestion}</span>
+                          </p>
+                        )}
                       </div>
                     )}
                     <div className="flex flex-wrap items-center gap-2">
@@ -432,6 +513,7 @@ export default function SpeakingPage({ selectedModel, fadeVariants }: SpeakingPa
                   <Bot className="h-4 w-4" />
                 </div>
                 <div className="rounded-2xl rounded-bl-md border border-violet-100 bg-white px-4 py-3 text-slate-700 shadow-sm">
+                  <p className="mb-2 text-xs font-bold text-violet-600">{statusText}</p>
                   <div className="flex h-6 items-center gap-1.5">
                     <div className="h-2 w-2 animate-bounce rounded-full bg-violet-400" style={{ animationDelay: '0ms' }} />
                     <div className="h-2 w-2 animate-bounce rounded-full bg-violet-400" style={{ animationDelay: '150ms' }} />
@@ -491,6 +573,7 @@ export default function SpeakingPage({ selectedModel, fadeVariants }: SpeakingPa
                 ))}
               </div>
             )}
+            <p className="min-h-5 text-center text-xs font-semibold text-slate-500">{statusText}</p>
           </div>
         </div>
       </div>
