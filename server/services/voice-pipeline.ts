@@ -64,6 +64,11 @@ interface ChatMessage {
   content: string;
 }
 
+export interface VoiceHistoryMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
 export interface TeacherFeedback {
   spokenReply: string;
   correction: string | null;
@@ -80,9 +85,25 @@ const EMPTY_FEEDBACK: TeacherFeedback = {
   followUpQuestion: null,
 };
 
+export function sanitizeVoiceHistory(history: unknown, maxMessages: number = 12): VoiceHistoryMessage[] {
+  if (!Array.isArray(history)) return [];
+
+  return history
+    .filter((item: any) => (
+      (item?.role === 'user' || item?.role === 'assistant') &&
+      typeof item?.content === 'string' &&
+      item.content.trim()
+    ))
+    .map((item: any) => ({
+      role: item.role as VoiceHistoryMessage['role'],
+      content: item.content.trim().slice(0, 2000),
+    }))
+    .slice(-maxMessages);
+}
+
 export async function chatWithGroq(
   userMessage: string,
-  history: { role: 'user' | 'assistant'; content: string }[],
+  history: VoiceHistoryMessage[],
   hskLevel: string,
 ): Promise<string | null> {
   const systemPrompt = `You are a Chinese teacher for HSK learners.
@@ -127,7 +148,7 @@ Return only the final teacher reply in Chinese.`;
 
 export async function chatWithGroqFeedback(
   userMessage: string,
-  history: { role: 'user' | 'assistant'; content: string }[],
+  history: VoiceHistoryMessage[],
   hskLevel: string,
 ): Promise<TeacherFeedback | null> {
   const systemPrompt = `You are a Chinese speaking coach for Vietnamese HSK learners.
@@ -188,7 +209,7 @@ export interface SpeakPipelineResult {
 
 export async function runSpeakPipelineStream(
   audioBuffer: Buffer,
-  history: { role: 'user' | 'assistant'; content: string }[],
+  history: VoiceHistoryMessage[],
   hskLevel: string,
   fileName: string = 'audio.webm',
   ttsVoice: string = 'zh-CN-XiaoxiaoNeural',
@@ -295,7 +316,7 @@ Return only the final teacher reply in Chinese.`;
 
 export async function runSpeakPipeline(
   audioBuffer: Buffer,
-  history: { role: 'user' | 'assistant'; content: string }[],
+  history: VoiceHistoryMessage[],
   hskLevel: string,
   fileName: string = 'audio.webm',
   ttsVoice: string = 'zh-CN-XiaoxiaoNeural',

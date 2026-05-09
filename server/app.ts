@@ -5,7 +5,7 @@ import path from 'node:path';
 import fs from 'node:fs/promises';
 import { AIModel, QuizType, explainWord, generateChineseText, generateQuiz, chatWithTeacher, chatNormally } from './services/ai';
 
-import { runSpeakPipeline } from './services/voice-pipeline';
+import { runSpeakPipeline, sanitizeVoiceHistory } from './services/voice-pipeline';
 import { normalizeChineseVoice, synthesizeChineseSpeech } from './services/tts-provider';
 import { db, initDb } from './services/db';
 
@@ -231,9 +231,7 @@ app.post('/api/speak', async (req, res) => {
       return res.status(413).json({ error: 'Audio is empty or too large.' });
     }
 
-    const chatHistory = Array.isArray(history)
-      ? history.filter((h: any) => h.role && h.content).slice(-12)
-      : [];
+    const chatHistory = sanitizeVoiceHistory(history);
     const level = typeof hskLevel === 'string' && /^HSK [1-6]$/.test(hskLevel) ? hskLevel : 'HSK 3';
     const voice = normalizeChineseVoice(ttsVoice);
     const name = typeof fileName === 'string' && /\.(webm|wav|mp3|ogg|m4a|flac)$/i.test(fileName) ? fileName : 'audio.webm';

@@ -227,6 +227,8 @@ export default function SpeakingPage({ selectedModel, fadeVariants }: SpeakingPa
     stopAllAudio();
 
     try {
+      const conversationHistory = messages.map(({ role, content }) => ({ role, content }));
+
       if (realtimeEnabledRef.current && socketRef.current?.connected) {
         const arrayBuffer = await audioBlob.arrayBuffer();
         const base64 = btoa(
@@ -235,7 +237,7 @@ export default function SpeakingPage({ selectedModel, fadeVariants }: SpeakingPa
 
         socketRef.current.emit('speak', {
           audio: base64,
-          history: messages,
+          history: conversationHistory,
           hskLevel,
           ttsVoice,
           fileName: audioBlob.type.includes('webm') ? 'audio.webm' : 'audio.wav',
@@ -243,7 +245,7 @@ export default function SpeakingPage({ selectedModel, fadeVariants }: SpeakingPa
         return;
       }
 
-      const result = await speakToTeacher(audioBlob, messages, hskLevel, ttsVoice);
+      const result = await speakToTeacher(audioBlob, conversationHistory, hskLevel, ttsVoice);
       if (isDisposedRef.current) return;
       if (!result) {
         setVoiceError('Không xử lý được âm thanh. Vui lòng thử lại.');

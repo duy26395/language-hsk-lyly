@@ -1,7 +1,7 @@
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import { app } from './app';
-import { runSpeakPipelineStream } from './services/voice-pipeline';
+import { runSpeakPipelineStream, sanitizeVoiceHistory } from './services/voice-pipeline';
 import { normalizeChineseVoice } from './services/tts-provider';
 
 const port = Number(process.env.PORT || 3001);
@@ -30,11 +30,7 @@ io.on('connection', (socket) => {
         return;
       }
 
-      const safeHistory = Array.isArray(history)
-        ? history
-          .filter((item: any) => item?.role && item?.content)
-          .slice(-12)
-        : [];
+      const safeHistory = sanitizeVoiceHistory(history);
       const safeHskLevel = typeof hskLevel === 'string' && /^HSK [1-6]$/.test(hskLevel)
         ? hskLevel
         : 'HSK 3';
