@@ -30,7 +30,8 @@ export default function Sidebar({ activeTab, setActiveTab, showSettings, setShow
   return (
     <>
       {/* Mobile Top Bar */}
-      <div className="z-[60] flex shrink-0 items-center justify-between gap-2 border-b border-violet-100/40 bg-white/80 px-3 py-3 shadow-sm backdrop-blur-2xl md:hidden">
+      <div className="z-[60] flex shrink-0 items-center justify-between gap-2 border-b border-white/20 glass bg-white/5 px-3 py-3 shadow-sm backdrop-blur-2xl md:hidden">
+
          <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="shrink-0 p-2 text-violet-600 hover:bg-violet-50 rounded-xl transition-colors active:scale-95">
            {isMenuOpen ? <CloseIcon className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
          </button>
@@ -58,13 +59,14 @@ export default function Sidebar({ activeTab, setActiveTab, showSettings, setShow
               onClick={() => setIsMenuOpen(false)}
               className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[55] md:hidden"
             />
-            <motion.div
+             <motion.div
               initial={{ x: '-100%' }}
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="fixed bottom-0 left-0 top-0 z-[56] flex w-[280px] max-w-[86vw] flex-col overflow-y-auto bg-white p-5 shadow-2xl md:hidden"
+              className="fixed bottom-0 left-0 top-0 z-[56] flex w-[280px] max-w-[86vw] flex-col overflow-y-auto glass border-r border-white/20 bg-white/10 p-5 shadow-2xl md:hidden"
             >
+
               <div className="flex items-center gap-3 mb-10">
                 <div className="w-10 h-10 rounded-xl overflow-hidden border-2 border-fuchsia-400 shadow-sm">
                   <img src={logoUrl} alt="Logo" className="w-full h-full object-cover" />
@@ -110,7 +112,8 @@ export default function Sidebar({ activeTab, setActiveTab, showSettings, setShow
       </AnimatePresence>
 
       {/* Sidebar (Desktop) */}
-      <nav className="hidden md:flex md:w-[96px] shrink-0 flex-col print:hidden justify-start z-50 bg-white/80 border-r border-violet-50/50 p-4 py-8 gap-4 transition-all duration-300">
+      <nav className="hidden md:flex md:w-[100px] shrink-0 flex-col print:hidden justify-start z-50 glass bg-white/5 border-r border-white/20 p-4 py-8 gap-4 transition-all duration-300">
+
         <div className="hidden md:flex flex-col items-center mb-6">
           <div className="w-14 h-14 rounded-2xl overflow-hidden border-2 border-white shadow-xl rotate-3 hover:rotate-0 transition-transform duration-500 cursor-pointer group">
             <img src={logoUrl} alt="LyLy" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />

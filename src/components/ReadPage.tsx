@@ -43,11 +43,15 @@ export default function ReadPage({
   const btnPrimary =
     'flex min-w-0 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-fuchsia-500 via-violet-500 to-indigo-500 px-6 py-3.5 text-sm font-semibold text-white shadow-lg shadow-violet-200/70 transition-all duration-300 hover:from-fuchsia-500 hover:via-violet-600 hover:to-indigo-600 hover:shadow-xl hover:shadow-violet-200 active:scale-[0.97] disabled:opacity-60 disabled:shadow-none disabled:active:scale-100';
   const btnSecondary =
-    'flex min-w-0 items-center justify-center gap-2 rounded-xl border border-violet-100 bg-white/90 px-5 py-3 text-sm font-medium text-violet-700 transition-all duration-300 hover:border-violet-200 hover:bg-violet-50 hover:shadow-sm active:scale-[0.97]';
+    'flex min-w-0 items-center justify-center gap-2 rounded-xl glass px-5 py-3 text-sm font-medium text-violet-700 transition-all duration-300 hover:border-violet-300 hover:bg-white/90 hover:shadow-sm active:scale-[0.97]';
+
+
   const textAreaClasses =
-    'w-full resize-none rounded-[1.25rem] border border-violet-100 bg-white/95 p-5 text-[17px] leading-relaxed text-slate-700 shadow-sm transition-all duration-300 focus:border-violet-400 focus:outline-none focus:ring-4 focus:ring-violet-500/10';
+    'w-full resize-none rounded-[1.25rem] border border-white/50 glass p-5 text-[17px] leading-relaxed text-slate-700 shadow-xl transition-all duration-300 focus:border-violet-400 focus:bg-white/60 focus:outline-none focus:ring-4 focus:ring-violet-500/10';
+
   const cardClasses =
-    'group relative overflow-hidden rounded-[1.25rem] border border-violet-50/80 bg-white/95 p-5 shadow-[0_2px_20px_rgba(139,92,246,0.06)] transition-all duration-500 hover:shadow-[0_10px_34px_rgba(139,92,246,0.13)] md:p-6';
+    'group relative overflow-hidden rounded-[1.25rem] border border-white/50 glass p-5 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.1)] backdrop-blur-3xl transition-all duration-500 hover:shadow-[0_48px_80px_-20px_rgba(0,0,0,0.15)] md:p-6';
+
 
   return (
     <motion.div
@@ -87,11 +91,12 @@ export default function ReadPage({
                 key={idx}
                 type="button"
                 onClick={() => setReadInput(sample)}
-                className="inline-flex items-center gap-2 rounded-full border border-violet-100 bg-white/80 px-4 py-2 text-sm font-semibold text-slate-600 shadow-sm transition-all hover:-translate-y-0.5 hover:border-violet-200 hover:bg-violet-50 hover:text-violet-700 active:scale-[0.98]"
+                className="inline-flex items-center gap-2 rounded-full border border-white/40 glass px-4 py-2 text-sm font-semibold text-slate-600 shadow-sm transition-all hover:-translate-y-0.5 hover:bg-white/60 hover:text-violet-700 active:scale-[0.98]"
               >
                 <ClipboardPaste className="h-4 w-4 text-violet-400" />
                 Sample {idx + 1}
               </button>
+
             ))}
           </div>
           <button
@@ -110,23 +115,30 @@ export default function ReadPage({
               }}
               className={`${btnSecondary} !rounded-full !bg-white/50 !px-4 !py-2 !text-xs shadow-sm backdrop-blur-sm`}
             >
-              <VolumeX className="h-4 w-4 text-slate-400" /> Stop
+              <VolumeX className="h-4 w-4 text-slate-500" /> Stop
+
             </button>
             <button
               onClick={() => readAloud(readText)}
               className={`${btnSecondary} !rounded-full !bg-white/50 !px-4 !py-2 !text-xs shadow-sm backdrop-blur-sm`}
             >
-              <Volume2 className="h-4 w-4 text-violet-500" /> Listen All
+              <Volume2 className="h-4 w-4 text-violet-600" /> Listen All
+
             </button>
             <SavePassageButton text={readText} onSave={onSavePassage} />
           </div>
           <div className={`${cardClasses} flex-1`}>
+            {/* Subtle background decoration */}
+            <div className="absolute top-0 right-0 p-8 opacity-[0.03] group-hover:opacity-[0.06] transition-opacity pointer-events-none">
+              <BookOpen size={200} className="-rotate-12" />
+            </div>
             <InteractiveText
               text={readText}
               onAddToNotebook={onAddToNotebook}
               selectedModel={selectedModel}
             />
           </div>
+
         </div>
       )}
     </motion.div>
@@ -155,8 +167,9 @@ function SavePassageButton({ text, onSave }: { text: string; onSave: (text: stri
       className={`flex min-w-0 items-center justify-center gap-2 !rounded-full !px-4 !py-2 !text-xs font-semibold border shadow-sm backdrop-blur-sm transition-all duration-300 active:scale-[0.97]
         ${
           saved
-            ? 'cursor-default border-emerald-200 bg-emerald-50 text-emerald-600'
-            : 'border-violet-100 bg-white/50 text-violet-700 hover:border-violet-200 hover:bg-violet-50'
+            ? 'cursor-default border-emerald-200/50 bg-emerald-50 text-emerald-600'
+            : 'glass text-violet-700 hover:border-violet-300 hover:bg-white/90'
+
         }`}
     >
       {saving ? (

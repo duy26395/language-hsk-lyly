@@ -191,9 +191,12 @@ export default function NotebookPage({
   const visibleNotes = filteredTimeline.filter((item) => item.type === 'note').length;
 
   const btnSecondary =
-    'inline-flex min-w-0 items-center justify-center gap-2 rounded-2xl border border-violet-100 bg-white/90 px-4 py-3 text-sm font-semibold text-violet-700 transition-all duration-300 hover:border-violet-200 hover:bg-violet-50 hover:shadow-sm active:scale-[0.98]';
-  const panelClass =
-    'rounded-[1.5rem] border border-white/70 bg-white/92 shadow-[0_10px_40px_rgba(76,29,149,0.06)] backdrop-blur-sm';
+    'inline-flex min-w-0 items-center justify-center gap-2 rounded-2xl glass px-4 py-3 text-sm font-semibold text-violet-700 transition-all duration-300 hover:border-violet-300 hover:bg-white/90 hover:shadow-sm active:scale-[0.98]';
+
+
+   const panelClass =
+    'rounded-[1.5rem] border border-white/50 glass shadow-[0_32px_64px_-16px_rgba(0,0,0,0.1)] backdrop-blur-3xl transition-all hover:bg-white/50';
+
 
   return (
     <motion.div
@@ -237,7 +240,11 @@ export default function NotebookPage({
         )}
       </AnimatePresence>
 
-      <section className="overflow-hidden rounded-[2rem] border border-violet-100/70 bg-[radial-gradient(circle_at_top_left,_rgba(196,181,253,0.35),_transparent_35%),linear-gradient(135deg,_rgba(255,255,255,0.96),_rgba(245,243,255,0.98))] p-5 shadow-[0_20px_60px_rgba(109,40,217,0.10)] print:shadow-none sm:p-6 md:p-8">
+      <section className="overflow-hidden rounded-[2rem] border border-white/50 glass bg-[radial-gradient(circle_at_top_left,_rgba(196,181,253,0.35),_transparent_35%),linear-gradient(135deg,_rgba(255,255,255,0.4),_rgba(245,243,255,0.3))] p-5 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.1)] print:shadow-none sm:p-6 md:p-8 relative group">
+        <div className="absolute top-0 right-0 p-12 opacity-[0.05] group-hover:opacity-[0.1] transition-opacity pointer-events-none">
+          <LibraryBig size={180} className="-rotate-12" />
+        </div>
+
         <div className="flex flex-col gap-5">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div className="min-w-0">
@@ -299,7 +306,9 @@ export default function NotebookPage({
                   <h2 className="mt-1 text-xl font-bold text-slate-900">Everything saved, organized for quick action</h2>
                 </div>
 
-                <div className="inline-flex w-full max-w-full items-center gap-2 rounded-2xl border border-slate-100 bg-slate-50 px-3 py-3 text-sm text-slate-500 lg:max-w-sm">
+                <div className="inline-flex w-full max-w-full items-center gap-2 rounded-2xl border border-white/60 bg-white/60 px-3 py-3 text-sm text-slate-500 lg:max-w-sm backdrop-blur-md transition-colors focus-within:bg-white focus-within:border-violet-300">
+
+
                   <Search className="h-4 w-4 shrink-0" />
                   <input
                     value={query}
@@ -407,8 +416,9 @@ export default function NotebookPage({
               value={noteContent}
               onChange={(e) => setNoteContent(e.target.value)}
               placeholder="Write your notes here..."
-              className="mt-4 min-h-[260px] w-full resize-none rounded-[1.5rem] border border-amber-100 bg-amber-50/60 p-4 text-[15px] leading-7 text-slate-700 outline-none transition-all duration-300 placeholder:text-slate-400 focus:border-amber-300 focus:ring-4 focus:ring-amber-200/40"
+              className="mt-4 min-h-[260px] w-full resize-none rounded-[1.5rem] border border-amber-200/50 glass bg-amber-50/20 p-4 text-[15px] leading-7 text-slate-700 outline-none transition-all duration-300 placeholder:text-slate-400 focus:border-amber-400 focus:bg-white/60 focus:ring-4 focus:ring-amber-200/40"
             />
+
             <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-sm leading-6 text-slate-500">
                 Keep quick mnemonics, grammar reminders, or examples you want to revisit while studying.
@@ -449,7 +459,8 @@ function OverviewCard({
   } as const;
 
   return (
-    <div className="rounded-[1.5rem] border border-white/70 bg-white/75 p-4 shadow-sm backdrop-blur-sm">
+    <div className="rounded-[1.5rem] border border-white/50 glass p-4 shadow-xl backdrop-blur-3xl transition-all hover:-translate-y-1 hover:bg-white/60">
+
       <div className={`grid h-11 w-11 place-items-center rounded-2xl ${toneMap[tone]}`}>
         <Icon className="h-5 w-5" />
       </div>
@@ -466,7 +477,9 @@ function FilterChip({ active, label, onClick }: { active: boolean; label: string
       className={`rounded-full px-4 py-2 text-sm font-semibold transition-all active:scale-[0.98] ${
         active
           ? 'bg-violet-600 text-white shadow-lg shadow-violet-200'
-          : 'border border-violet-100 bg-white text-violet-600 hover:bg-violet-50'
+          : 'glass text-violet-600 hover:bg-white/90'
+
+
       }`}
     >
       {label}
@@ -488,7 +501,11 @@ function WordCard({
   const [removing, setRemoving] = useState(false);
 
   return (
-    <article className="group overflow-hidden rounded-[1.5rem] border border-violet-100/70 bg-white/95 shadow-[0_8px_30px_rgba(109,40,217,0.07)] transition-all duration-300 hover:-translate-y-0.5 hover:border-violet-200 hover:shadow-[0_14px_34px_rgba(109,40,217,0.12)]">
+    <article className="group overflow-hidden rounded-[1.5rem] border border-white/50 glass p-1 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.1)] backdrop-blur-3xl transition-all duration-300 hover:-translate-y-1 hover:border-violet-300 hover:shadow-[0_48px_80px_-20px_rgba(0,0,0,0.15)] relative">
+      <div className="absolute top-0 right-0 p-6 opacity-[0.03] group-hover:opacity-[0.06] transition-opacity pointer-events-none">
+        <Search size={80} />
+      </div>
+
       <div className="grid gap-4 p-4 sm:p-5">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">

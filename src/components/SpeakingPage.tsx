@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Languages, Loader2, Mic, MicOff, RotateCcw, User, Bot, Volume2 } from 'lucide-react';
 import { io, Socket } from 'socket.io-client';
-import { AIModel, translateToVietnamese } from '../lib/ai';
+import { AIModel, summarizeConversation, translateToVietnamese } from '../lib/ai';
 import { AudioPlayer, AudioRecorder, speakToTeacher, textToSpeech, type TeacherFeedback } from '../lib/voice';
 
 interface Message {
@@ -41,6 +41,7 @@ export default function SpeakingPage({ selectedModel, fadeVariants }: SpeakingPa
   const [translations, setTranslations] = useState<Record<string, string>>({});
   const [translatingKey, setTranslatingKey] = useState<string | null>(null);
   const [readingKey, setReadingKey] = useState<string | null>(null);
+  const [conversationSummary, setConversationSummary] = useState('');
 
   const recorderRef = useRef<AudioRecorder | null>(null);
   const socketRef = useRef<Socket | null>(null);
@@ -51,6 +52,7 @@ export default function SpeakingPage({ selectedModel, fadeVariants }: SpeakingPa
   const isPressingRef = useRef(false);
   const isDisposedRef = useRef(false);
   const realtimeEnabledRef = useRef(canUseRealtimeVoice());
+  const summarizedCountRef = useRef(0);
 
   const stopAllAudio = () => {
     audioQueueRef.current = [];
@@ -227,7 +229,26 @@ export default function SpeakingPage({ selectedModel, fadeVariants }: SpeakingPa
     stopAllAudio();
 
     try {
-      const conversationHistory = messages.map(({ role, content }) => ({ role, content }));
+      let summaryForRequest = conversationSummary;
+      let summarizedCountForRequest = summarizedCountRef.current;
+
+      if (messages.length - summarizedCountForRequest > 12) {
+        const nextSummarizedCount = Math.max(summarizedCountForRequest, messages.length - 10);
+        const messagesToSummarize = messages
+          .slice(summarizedCountForRequest, nextSummarizedCount)
+          .map(({ role, content }) => ({ role, content }));
+        const nextSummary = await summarizeConversation(messagesToSummarize, conversationSummary, selectedModel);
+        if (nextSummary) {
+          summaryForRequest = nextSummary;
+          summarizedCountForRequest = nextSummarizedCount;
+          summarizedCountRef.current = nextSummarizedCount;
+          setConversationSummary(nextSummary);
+        }
+      }
+
+      const conversationHistory = messages
+        .slice(Math.max(summarizedCountForRequest, messages.length - 12))
+        .map(({ role, content }) => ({ role, content }));
 
       if (realtimeEnabledRef.current && socketRef.current?.connected) {
         const arrayBuffer = await audioBlob.arrayBuffer();
@@ -240,12 +261,13 @@ export default function SpeakingPage({ selectedModel, fadeVariants }: SpeakingPa
           history: conversationHistory,
           hskLevel,
           ttsVoice,
+          summary: summaryForRequest,
           fileName: audioBlob.type.includes('webm') ? 'audio.webm' : 'audio.wav',
         });
         return;
       }
 
-      const result = await speakToTeacher(audioBlob, conversationHistory, hskLevel, ttsVoice);
+      const result = await speakToTeacher(audioBlob, conversationHistory, hskLevel, ttsVoice, summaryForRequest);
       if (isDisposedRef.current) return;
       if (!result) {
         setVoiceError('Không xử lý được âm thanh. Vui lòng thử lại.');
@@ -335,6 +357,8 @@ export default function SpeakingPage({ selectedModel, fadeVariants }: SpeakingPa
     setTranslations({});
     setVoiceError('');
     setPipelineStatus('idle');
+    setConversationSummary('');
+    summarizedCountRef.current = 0;
   };
 
   const statusText = isRecording
@@ -386,8 +410,15 @@ export default function SpeakingPage({ selectedModel, fadeVariants }: SpeakingPa
         </div>
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[1.25rem] border border-violet-50 bg-white/65 shadow-inner backdrop-blur-md md:rounded-[2rem]">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[1.25rem] border border-white/50 glass shadow-[0_32px_64px_-16px_rgba(0,0,0,0.15)] backdrop-blur-3xl md:rounded-[2rem] relative">
+
+
+        <div className="absolute top-0 right-0 p-10 opacity-[0.03] pointer-events-none">
+          <Mic size={120} />
+        </div>
+
         <div ref={chatScrollRef} className="no-scrollbar flex-1 min-h-0 overflow-y-auto p-3 md:p-4">
+
           <div className="min-w-0 space-y-2">
             {messages.map((message, index) => {
               const messageKey = `${message.role}-${index}-${message.content}`;
@@ -413,12 +444,13 @@ export default function SpeakingPage({ selectedModel, fadeVariants }: SpeakingPa
                   )}
 
                   <div
-                    className={`group max-w-[86%] break-words rounded-2xl px-3 py-2 text-left shadow-sm md:max-w-[80%] ${
+                    className={`group max-w-[86%] break-words rounded-2xl px-3 py-2 text-left shadow-xl md:max-w-[80%] transition-all hover:shadow-2xl ${
                       message.role === 'user'
-                        ? 'rounded-br-md bg-slate-800 text-white'
-                        : 'rounded-bl-md border border-violet-100 bg-white text-slate-700'
+                        ? 'rounded-br-md bg-gradient-to-br from-slate-800 to-slate-900 text-white'
+                        : 'rounded-bl-md border border-white/60 glass bg-white/60 text-slate-700'
                     }`}
                   >
+
                     <p className="mb-1 text-sm md:text-base">{message.content}</p>
                     {translation && (
                       <div
@@ -527,7 +559,10 @@ export default function SpeakingPage({ selectedModel, fadeVariants }: SpeakingPa
           </div>
         </div>
 
-        <div className="border-t border-violet-100/80 bg-white/85 p-4 md:p-5">
+        <div className="border-t border-white/50 bg-white/40 p-4 md:p-5 backdrop-blur-md">
+
+
+
           <div className="flex flex-col items-center gap-3">
             <button
               type="button"

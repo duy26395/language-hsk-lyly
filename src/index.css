@@ -14,18 +14,19 @@
   html {
     min-height: 100%;
     width: 100%;
-    background: #fbfaff;
+    background: #f8fafc;
     overflow-x: hidden;
   }
 
   body {
     min-height: 100%;
     width: 100%;
-    background-color: #fbfaff;
+    background: #f8fafc;
     color: #0f172a;
     -webkit-tap-highlight-color: transparent;
     overflow-x: hidden;
   }
+
 
   #root {
     min-height: 100dvh;
@@ -51,36 +52,35 @@
     inset: 0;
     z-index: -10;
     overflow: hidden;
-    background:
-      linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(250,245,255,0.95) 36%, rgba(241,253,247,0.9) 68%, rgba(255,248,236,0.9) 100%);
+    background: #fbfaff;
   }
 
   .app-background::before {
     content: "";
     position: absolute;
-    inset: -8%;
-    background-image:
-      radial-gradient(ellipse 44px 20px at 8% 18%, rgba(236,72,153,0.16) 0 46%, transparent 48%),
-      radial-gradient(ellipse 20px 44px at 12% 14%, rgba(139,92,246,0.15) 0 44%, transparent 46%),
-      radial-gradient(ellipse 36px 16px at 86% 16%, rgba(16,185,129,0.16) 0 45%, transparent 47%),
-      radial-gradient(ellipse 16px 36px at 90% 20%, rgba(245,158,11,0.14) 0 45%, transparent 47%),
-      radial-gradient(ellipse 44px 18px at 18% 84%, rgba(16,185,129,0.13) 0 44%, transparent 46%),
-      radial-gradient(ellipse 18px 44px at 14% 80%, rgba(236,72,153,0.12) 0 44%, transparent 46%),
-      linear-gradient(115deg, transparent 0 10%, rgba(139,92,246,0.08) 10.2% 10.6%, transparent 10.8% 100%),
-      linear-gradient(65deg, transparent 0 83%, rgba(16,185,129,0.08) 83.2% 83.6%, transparent 83.8% 100%);
-    opacity: 0.95;
+    inset: -20%;
+    background: 
+      radial-gradient(circle at 20% 30%, hsla(262, 83%, 58%, 0.15) 0%, transparent 40%),
+      radial-gradient(circle at 80% 20%, hsla(162, 84%, 58%, 0.12) 0%, transparent 40%),
+      radial-gradient(circle at 50% 80%, hsla(339, 90%, 65%, 0.12) 0%, transparent 40%),
+      radial-gradient(circle at 10% 90%, hsla(35, 92%, 58%, 0.1) 0%, transparent 40%);
+    filter: blur(80px);
+    animation: background-pulse 20s ease-in-out infinite alternate;
   }
 
-  .app-background::after {
-    content: "";
-    position: absolute;
-    inset: auto -8% -16% -8%;
-    height: 42%;
-    background:
-      linear-gradient(8deg, rgba(139,92,246,0.08), transparent 58%),
-      linear-gradient(170deg, rgba(16,185,129,0.09), transparent 52%);
-    clip-path: polygon(0 38%, 12% 32%, 26% 44%, 42% 28%, 58% 42%, 74% 30%, 88% 40%, 100% 26%, 100% 100%, 0 100%);
+  @keyframes background-pulse {
+    0% { transform: scale(1) translate(0, 0); }
+    100% { transform: scale(1.1) translate(-2%, -2%); }
   }
+
+  .glass {
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(40px) saturate(200%);
+    -webkit-backdrop-filter: blur(40px) saturate(200%);
+    border: 1px solid rgba(255, 255, 255, 0.8);
+    box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.05);
+  }
+
 
   .floral-corner {
     background:

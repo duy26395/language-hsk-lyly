@@ -34,7 +34,8 @@ export async function speakToTeacher(
   audioBlob: Blob,
   history: { role: 'user' | 'assistant'; content: string }[],
   hskLevel: string,
-  ttsVoice: string = 'zh-CN-XiaoxiaoNeural'
+  ttsVoice: string = 'zh-CN-XiaoxiaoNeural',
+  summary = '',
 ): Promise<SpeakResult | null> {
   try {
     const arrayBuffer = await audioBlob.arrayBuffer();
@@ -50,6 +51,7 @@ export async function speakToTeacher(
         history,
         hskLevel,
         ttsVoice,
+        summary,
         fileName: getAudioFileName(audioBlob.type),
       }),
     });

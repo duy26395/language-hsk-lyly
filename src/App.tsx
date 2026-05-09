@@ -10,7 +10,7 @@ import StudyDeck, {
 import { WordExplanation, AIModel } from './lib/ai';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Variants } from 'framer-motion';
-import { Mic, ShieldCheck, Smartphone, X } from 'lucide-react';
+import { Mic, ShieldCheck, Smartphone, X, Heart, Sparkles, Star, Cloud } from 'lucide-react';
 
 import Sidebar from './components/Sidebar';
 import SettingsModal from './components/SettingsModal';
@@ -20,6 +20,7 @@ import NotebookPage from './components/NotebookPage';
 import SearchPage from './components/SearchPage';
 import SpeakingPage from './components/SpeakingPage';
 import AIChatPage from './components/AIChatPage';
+import SecurityGuard from './components/SecurityGuard';
 
 const softEase = [0.22, 1, 0.36, 1] as const;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -398,9 +399,118 @@ export default function App() {
   };
 
   return (
-    <div className="relative flex h-dvh min-h-dvh w-full min-w-0 flex-col overflow-hidden bg-[#fbfaff] font-sans text-slate-800 md:flex-row">
-      <div className="app-background" />
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/10 via-transparent to-white/20" />
+    <SecurityGuard>
+      <div className="relative flex h-dvh min-h-dvh w-full min-w-0 flex-col overflow-hidden bg-transparent font-sans text-slate-800 md:flex-row">
+
+        {/* Dynamic App Background */}
+        <div className="fixed inset-0 -z-10 overflow-hidden pointer-events-none">
+          <motion.div
+            animate={{
+              scale: [1, 1.2, 1],
+              rotate: [0, 45, 0],
+              x: [0, 50, 0],
+              y: [0, 70, 0],
+            }}
+            transition={{
+              duration: 20,
+              repeat: Infinity,
+              ease: "easeInOut"
+            }}
+            className="absolute -top-[10%] -left-[10%] h-[60%] w-[60%] rounded-full bg-gradient-to-br from-violet-300/40 to-fuchsia-300/40 blur-[100px]"
+          />
+          <motion.div
+            animate={{
+              scale: [1, 1.3, 1],
+              rotate: [0, -30, 0],
+              x: [0, -60, 0],
+              y: [0, -50, 0],
+            }}
+            transition={{
+              duration: 25,
+              repeat: Infinity,
+              ease: "easeInOut"
+            }}
+            className="absolute -bottom-[10%] -right-[10%] h-[70%] w-[70%] rounded-full bg-gradient-to-tr from-emerald-200/40 to-cyan-200/40 blur-[100px]"
+          />
+          <motion.div
+            animate={{
+              scale: [1, 1.15, 1],
+              x: [0, 80, 0],
+              y: [0, 60, 0],
+            }}
+            transition={{
+              duration: 18,
+              repeat: Infinity,
+              ease: "easeInOut"
+            }}
+            className="absolute top-[20%] right-[15%] h-[45%] w-[45%] rounded-full bg-gradient-to-bl from-blue-200/40 to-indigo-200/40 blur-[80px]"
+          />
+          <motion.div
+            animate={{
+              scale: [1, 1.25, 1],
+              x: [0, -40, 0],
+              y: [0, -60, 0],
+            }}
+            transition={{
+              duration: 22,
+              repeat: Infinity,
+              ease: "easeInOut",
+              delay: 2
+            }}
+            className="absolute bottom-[20%] left-[15%] h-[40%] w-[40%] rounded-full bg-gradient-to-tr from-rose-200/30 to-orange-200/30 blur-[90px]"
+          />
+
+
+          {/* Floating Icons */}
+          {[...Array(8)].map((_, i) => {
+            const colors = ['text-violet-400', 'text-fuchsia-400', 'text-emerald-400', 'text-rose-400', 'text-sky-400', 'text-amber-400'];
+            const colorClass = colors[i % colors.length];
+            return (
+              <motion.div
+                key={`bg-icon-${i}`}
+                initial={{ 
+                  x: Math.random() * 100 + "%", 
+                  y: Math.random() * 100 + "%",
+                  opacity: 0,
+                  scale: 0.5 + Math.random() * 0.5
+                }}
+                animate={{
+                  y: [null, (Math.random() - 0.5) * 200],
+                  x: [null, (Math.random() - 0.5) * 200],
+                  rotate: [0, 180, -180],
+                  opacity: [0, 0.15 + Math.random() * 0.1, 0],
+                  scale: [null, 1 + Math.random() * 0.5, 0.5]
+                }}
+                transition={{
+                  duration: 15 + Math.random() * 20,
+                  repeat: Infinity,
+                  ease: "easeInOut",
+                  delay: Math.random() * 10
+                }}
+                className={`absolute ${colorClass} pointer-events-none`}
+              >
+                {i % 4 === 0 && <Sparkles size={16 + Math.random() * 16} />}
+                {i % 4 === 1 && <Heart size={14 + Math.random() * 14} />}
+                {i % 4 === 2 && <Star size={16 + Math.random() * 16} />}
+                {i % 4 === 3 && <Cloud size={20 + Math.random() * 20} />}
+              </motion.div>
+            )
+          })}
+          
+          {/* Grain/Noise Overlay */}
+          <div className="absolute inset-0 opacity-[0.02] contrast-150 brightness-100 pointer-events-none mix-blend-overlay" 
+               style={{ backgroundImage: 'url("https://grainy-gradients.vercel.app/noise.svg")' }} />
+          
+          {/* Subtle Grid */}
+          <div className="absolute inset-0 opacity-[0.03]" 
+               style={{ backgroundImage: 'radial-gradient(#6366f1 1px, transparent 1px)', backgroundSize: '40px 40px' }} />
+
+
+        </div>
+
+        
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-violet-500/10 via-transparent to-fuchsia-500/10 mix-blend-overlay" />
+
 
       <Sidebar
         activeTab={activeTab}
@@ -627,6 +737,7 @@ export default function App() {
           .format-avoid-break { page-break-inside: avoid; }
         }
       `}</style>
-    </div>
+      </div>
+    </SecurityGuard>
   );
 }

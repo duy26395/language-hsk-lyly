@@ -18,7 +18,7 @@ io.on('connection', (socket) => {
 
   socket.on('speak', async (data) => {
     try {
-      const { audio, history, hskLevel, ttsVoice, fileName } = data;
+      const { audio, history, hskLevel, ttsVoice, fileName, summary } = data;
       if (typeof audio !== 'string' || !audio) {
         socket.emit('error', { message: 'Audio is required.' });
         return;
@@ -44,6 +44,7 @@ io.on('connection', (socket) => {
         safeHskLevel, 
         safeFileName, 
         normalizeChineseVoice(ttsVoice),
+        typeof summary === 'string' ? summary.slice(0, 5000) : '',
         (event, payload) => {
           socket.emit(event, payload);
         }

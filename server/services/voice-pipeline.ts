@@ -105,6 +105,7 @@ export async function chatWithGroq(
   userMessage: string,
   history: VoiceHistoryMessage[],
   hskLevel: string,
+  summary = '',
 ): Promise<string | null> {
   const systemPrompt = `You are a Chinese teacher for HSK learners.
 Strict output policy:
@@ -114,9 +115,13 @@ Strict output policy:
 4) If correcting the learner, do it in Chinese only, then continue naturally.
 5) Do not include meta text, translations, analysis, or <think> tags.
 Return only the final teacher reply in Chinese.`;
+  const summaryPrompt = summary.trim()
+    ? `Conversation summary so far:\n${summary.trim().slice(0, 3000)}`
+    : '';
 
   const messages: ChatMessage[] = [
     { role: 'system', content: systemPrompt },
+    ...(summaryPrompt ? [{ role: 'system' as const, content: summaryPrompt }] : []),
     ...history,
     { role: 'user', content: userMessage },
   ];
@@ -150,6 +155,7 @@ export async function chatWithGroqFeedback(
   userMessage: string,
   history: VoiceHistoryMessage[],
   hskLevel: string,
+  summary = '',
 ): Promise<TeacherFeedback | null> {
   const systemPrompt = `You are a Chinese speaking coach for Vietnamese HSK learners.
 Return ONLY valid JSON. Do not include markdown, analysis, or <think> tags.
@@ -162,9 +168,13 @@ The JSON object must have exactly these keys:
   "followUpQuestion": "Simplified Chinese. A short question to continue the conversation, or empty string if already included in spokenReply."
 }
 Keep the coaching practical and friendly. Do not over-correct.`;
+  const summaryPrompt = summary.trim()
+    ? `Conversation summary so far:\n${summary.trim().slice(0, 3000)}`
+    : '';
 
   const messages: ChatMessage[] = [
     { role: 'system', content: systemPrompt },
+    ...(summaryPrompt ? [{ role: 'system' as const, content: summaryPrompt }] : []),
     ...history,
     { role: 'user', content: userMessage },
   ];
@@ -213,6 +223,7 @@ export async function runSpeakPipelineStream(
   hskLevel: string,
   fileName: string = 'audio.webm',
   ttsVoice: string = 'zh-CN-XiaoxiaoNeural',
+  summary = '',
   onEvent: (event: string, payload: any) => void,
 ): Promise<void> {
   onEvent('processing_stt', {});
@@ -232,9 +243,13 @@ Strict output policy:
 4) If correcting the learner, do it in Chinese only, then continue naturally.
 5) Do not include meta text, translations, analysis, or <think> tags.
 Return only the final teacher reply in Chinese.`;
+  const summaryPrompt = summary.trim()
+    ? `Conversation summary so far:\n${summary.trim().slice(0, 3000)}`
+    : '';
 
   const messages: ChatMessage[] = [
     { role: 'system', content: systemPrompt },
+    ...(summaryPrompt ? [{ role: 'system' as const, content: summaryPrompt }] : []),
     ...history,
     { role: 'user', content: userText },
   ];
@@ -320,6 +335,7 @@ export async function runSpeakPipeline(
   hskLevel: string,
   fileName: string = 'audio.webm',
   ttsVoice: string = 'zh-CN-XiaoxiaoNeural',
+  summary = '',
 ): Promise<SpeakPipelineResult | null> {
   const userText = await transcribeAudio(audioBuffer, 'zh', fileName);
   if (!userText) {
@@ -327,7 +343,7 @@ export async function runSpeakPipeline(
     return null;
   }
 
-  const feedback = await chatWithGroqFeedback(userText, history, hskLevel);
+  const feedback = await chatWithGroqFeedback(userText, history, hskLevel, summary);
   if (!feedback?.spokenReply) {
     console.warn('LLM returned empty response');
     return null;

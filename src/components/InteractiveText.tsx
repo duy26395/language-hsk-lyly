@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { segmentChineseText } from '../lib/utils';
 import { explainWord, WordExplanation, AIModel } from '../lib/ai';
 import { Loader2, Plus, Volume2, Lightbulb } from 'lucide-react';
@@ -237,15 +238,19 @@ export default function InteractiveText({
         })
       )}
 
-      <AnimatePresence>
-        {selected && (
+      {typeof document !== 'undefined' &&
+        createPortal(
+          <AnimatePresence>
+            {selected && (
           <motion.div
             ref={popoverRef}
             initial={{ opacity: 0, y: 12, scale: 0.95, filter: 'blur(10px)' }}
             animate={{ opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
             exit={{ opacity: 0, y: 8, scale: 0.98, filter: 'blur(10px)' }}
             transition={{ type: 'spring', stiffness: 400, damping: 30, mass: 0.8 }}
-            className="fixed z-[60] max-h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] max-w-[320px] overflow-y-auto rounded-[1.5rem] border border-violet-100 bg-white/95 p-4 text-left shadow-[0_25px_60px_-15px_rgba(139,92,246,0.2)] backdrop-blur-2xl sm:rounded-[2rem] sm:p-6"
+            className="fixed z-[60] max-h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] max-w-[320px] overflow-y-auto rounded-[1.5rem] glass p-4 text-left shadow-[0_25px_60px_-15px_rgba(139,92,246,0.2)] backdrop-blur-3xl sm:rounded-[2rem] sm:p-6"
+
+
             style={{ top: selected.y, left: selected.x }}
           >
             <div className="pointer-events-none absolute -mr-6 -mt-6 h-24 w-24 rounded-bl-full bg-violet-500/5" />
@@ -255,7 +260,7 @@ export default function InteractiveText({
               <div className="mb-4 flex items-start justify-between">
                 <div className="min-w-0 flex-1">
                   <div className="mb-1 flex flex-wrap items-center gap-2">
-                    <h3 className="chinese text-2xl font-bold leading-none tracking-tight text-slate-800">
+                    <h3 className="chinese min-w-0 break-words text-2xl font-bold leading-none tracking-tight text-slate-800">
                       {selected.word}
                     </h3>
                     {explanation && (
@@ -270,7 +275,7 @@ export default function InteractiveText({
                   {loading ? (
                     <div className="mt-2 h-4 w-24 animate-pulse rounded-full bg-slate-100" />
                   ) : (
-                    <div className="text-sm font-semibold tracking-wide text-violet-500">
+                    <div className="break-words text-sm font-semibold tracking-wide text-violet-500">
                       {explanation?.pinyin}
                     </div>
                   )}
@@ -298,28 +303,32 @@ export default function InteractiveText({
                   </div>
                 ) : explanation ? (
                   <div className="space-y-4">
-                    <div className="rounded-xl border border-violet-100/50 bg-violet-50/50 p-3 text-sm font-medium leading-relaxed text-slate-700">
+                    <div className="rounded-xl border border-white/80 bg-white/50 p-3 text-sm font-medium leading-relaxed text-slate-700 [overflow-wrap:anywhere]">
+
+
                       {explanation.meaning}
                     </div>
 
                     <div className="space-y-2">
-                      <div className="chinese text-sm leading-relaxed text-slate-800">{explanation.example}</div>
+                      <div className="chinese text-sm leading-relaxed text-slate-800 [overflow-wrap:anywhere]">{explanation.example}</div>
                       {explanation.examplePinyin && (
-                        <div className="text-[11px] font-medium leading-tight text-violet-400">
+                        <div className="text-[11px] font-medium leading-tight text-violet-400 [overflow-wrap:anywhere]">
                           {explanation.examplePinyin}
                         </div>
                       )}
-                      <div className="text-[11px] italic leading-tight text-slate-500">
+                      <div className="text-[11px] italic leading-tight text-slate-500 [overflow-wrap:anywhere]">
                         {explanation.exampleMeaning}
                       </div>
                     </div>
 
-                    <div className="flex items-start gap-3 rounded-xl border border-amber-100/50 bg-amber-50/50 p-3">
+                    <div className="flex items-start gap-3 rounded-xl border border-white/80 bg-white/50 p-3">
+
                       <Lightbulb className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
-                      <p className="text-[12px] font-medium leading-relaxed text-slate-600">
+                      <p className="min-w-0 text-[12px] font-medium leading-relaxed text-slate-600 [overflow-wrap:anywhere]">
                         {explanation.learningTip}
                       </p>
                     </div>
+
 
                     {(explanation.synonyms || explanation.antonyms) && (
                       <div className="grid grid-cols-1 gap-2 min-[360px]:grid-cols-2">
@@ -328,7 +337,7 @@ export default function InteractiveText({
                             <div className="mb-1 text-[9px] font-bold uppercase tracking-wider text-emerald-600">
                               Đồng nghĩa
                             </div>
-                            <div className="chinese text-xs font-medium text-slate-700">
+                            <div className="chinese text-xs font-medium text-slate-700 [overflow-wrap:anywhere]">
                               {explanation.synonyms}
                             </div>
                           </div>
@@ -338,7 +347,7 @@ export default function InteractiveText({
                             <div className="mb-1 text-[9px] font-bold uppercase tracking-wider text-rose-600">
                               Trái nghĩa
                             </div>
-                            <div className="chinese text-xs font-medium text-slate-700">
+                            <div className="chinese text-xs font-medium text-slate-700 [overflow-wrap:anywhere]">
                               {explanation.antonyms}
                             </div>
                           </div>
@@ -369,8 +378,10 @@ export default function InteractiveText({
               </div>
             </div>
           </motion.div>
+            )}
+          </AnimatePresence>,
+          document.body,
         )}
-      </AnimatePresence>
     </div>
   );
 }

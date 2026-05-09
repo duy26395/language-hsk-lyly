@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Transition } from 'framer-motion';
 import {
@@ -16,8 +16,23 @@ import {
   Headphones,
   Volume2,
   VolumeX,
+  MessageCircle,
+  Star,
+  Sparkles,
+  Mic,
+  MicOff,
 } from 'lucide-react';
-import { generateQuiz, QuizQuestion, AIModel, QuizType, readAloud } from '../lib/ai';
+import {
+  generateInterviewQuestion,
+  evaluateInterview,
+  generateQuiz,
+  QuizQuestion,
+  AIModel,
+  QuizType,
+  readAloud,
+  type InterviewEvaluation,
+  type InterviewTurn,
+} from '../lib/ai';
 
 const HSK_LEVELS = [1, 2, 3, 4, 5, 6];
 const TOPICS = [
@@ -26,6 +41,15 @@ const TOPICS = [
   { id: 'travel', name: 'Travel & Shopping', Icon: Plane },
   { id: 'school', name: 'School & Study', Icon: GraduationCap },
 ];
+
+const INTERVIEW_SECONDS_BY_HSK: Record<number, number> = {
+  1: 20,
+  2: 25,
+  3: 30,
+  4: 40,
+  5: 50,
+  6: 60,
+};
 
 const springTransition: Transition = { type: 'spring', stiffness: 340, damping: 31, mass: 0.72 };
 
@@ -46,12 +70,77 @@ export default function QuizWizard({ selectedModel }: QuizWizardProps) {
   const [currentQIndex, setCurrentQIndex] = useState(0);
   const [selectedAnswers, setSelectedAnswers] = useState<number[]>([]);
   const [score, setScore] = useState<number | null>(null);
+  const [interviewTurns, setInterviewTurns] = useState<InterviewTurn[]>([]);
+  const [currentInterviewQuestion, setCurrentInterviewQuestion] = useState('');
+  const [interviewAnswer, setInterviewAnswer] = useState('');
+  const [speechConfidence, setSpeechConfidence] = useState<number | undefined>();
+  const [isListening, setIsListening] = useState(false);
+  const [isInterviewThinking, setIsInterviewThinking] = useState(false);
+  const [interviewEvaluation, setInterviewEvaluation] = useState<InterviewEvaluation | null>(null);
+  const [answerTimeLeft, setAnswerTimeLeft] = useState(0);
+  const [isAnswerWindowReady, setIsAnswerWindowReady] = useState(false);
+  const [interviewVoiceError, setInterviewVoiceError] = useState('');
+
+  const recognitionRef = useRef<any | null>(null);
+  const interviewAnswerRef = useRef('');
+  const speechConfidenceRef = useRef<number | undefined>(undefined);
+  const autoSubmitOnRecognitionEndRef = useRef(false);
+  const isSubmittingInterviewRef = useRef(false);
 
   useEffect(() => {
     return () => {
       window.speechSynthesis?.cancel();
+      recognitionRef.current?.abort?.();
     };
   }, [step]);
+
+  useEffect(() => {
+    if (step !== 3 || quizType !== 'interview' || !currentInterviewQuestion) return;
+    setIsAnswerWindowReady(false);
+    setInterviewAnswer('');
+    setSpeechConfidence(undefined);
+    setInterviewVoiceError('');
+    interviewAnswerRef.current = '';
+    speechConfidenceRef.current = undefined;
+    autoSubmitOnRecognitionEndRef.current = false;
+    recognitionRef.current?.abort?.();
+    setIsListening(false);
+
+    const answerSeconds = level ? INTERVIEW_SECONDS_BY_HSK[level] : 30;
+    setAnswerTimeLeft(answerSeconds);
+
+    if (!window.speechSynthesis) {
+      setIsAnswerWindowReady(true);
+      return;
+    }
+
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(currentInterviewQuestion);
+    utterance.lang = 'zh-CN';
+    utterance.rate = 0.9;
+    utterance.onend = () => setIsAnswerWindowReady(true);
+    utterance.onerror = () => setIsAnswerWindowReady(true);
+    window.speechSynthesis.speak(utterance);
+
+    return () => {
+      window.speechSynthesis?.cancel();
+      recognitionRef.current?.abort?.();
+    };
+  }, [currentInterviewQuestion, level, quizType, step]);
+
+  useEffect(() => {
+    if (!isListening || answerTimeLeft <= 0) return;
+    const timeoutId = window.setTimeout(() => {
+      setAnswerTimeLeft((current) => Math.max(current - 1, 0));
+    }, 1000);
+    return () => window.clearTimeout(timeoutId);
+  }, [answerTimeLeft, isListening]);
+
+  useEffect(() => {
+    if (!isListening || answerTimeLeft > 0) return;
+    autoSubmitOnRecognitionEndRef.current = true;
+    recognitionRef.current?.stop?.();
+  }, [answerTimeLeft, isListening]);
 
   const nextStep = () => {
     setDirection(1);
@@ -67,6 +156,21 @@ export default function QuizWizard({ selectedModel }: QuizWizardProps) {
     if (!level || !topic) return;
     window.speechSynthesis?.cancel();
     setIsGenerating(true);
+    if (quizType === 'interview') {
+      const question = await generateInterviewQuestion(level, topic, [], 1, questionCount, selectedModel);
+      if (question) {
+        setCurrentInterviewQuestion(question);
+        setInterviewTurns([]);
+        setInterviewAnswer('');
+        setSpeechConfidence(undefined);
+        setInterviewEvaluation(null);
+        nextStep();
+      } else {
+        alert('Failed to prepare interview. Please try again.');
+      }
+      setIsGenerating(false);
+      return;
+    }
     const result = await generateQuiz(level, topic, questionCount, selectedModel, quizType);
     if (result && result.length > 0) {
       setQuestions(result);
@@ -113,6 +217,118 @@ export default function QuizWizard({ selectedModel }: QuizWizardProps) {
     nextStep();
   };
 
+  const submitInterviewAnswer = async (answerOverride?: string) => {
+    if (!level || !topic || !currentInterviewQuestion || isSubmittingInterviewRef.current) return;
+    isSubmittingInterviewRef.current = true;
+    recognitionRef.current?.abort?.();
+    setIsListening(false);
+    window.speechSynthesis?.cancel();
+    const answer = (answerOverride ?? interviewAnswerRef.current ?? interviewAnswer).trim() || '[No answer recognized]';
+    const nextTurns = [
+      ...interviewTurns,
+      {
+        question: currentInterviewQuestion,
+        answer,
+        speechConfidence: speechConfidenceRef.current ?? speechConfidence,
+      },
+    ];
+    setInterviewTurns(nextTurns);
+    setInterviewAnswer('');
+    setSpeechConfidence(undefined);
+    interviewAnswerRef.current = '';
+    speechConfidenceRef.current = undefined;
+    setIsAnswerWindowReady(false);
+    setInterviewVoiceError('');
+
+    if (nextTurns.length >= questionCount) {
+      setIsInterviewThinking(true);
+      const result = await evaluateInterview(level, topic, nextTurns, selectedModel);
+      setInterviewEvaluation(result);
+      setIsInterviewThinking(false);
+      isSubmittingInterviewRef.current = false;
+      nextStep();
+      return;
+    }
+
+    setIsInterviewThinking(true);
+    const question = await generateInterviewQuestion(level, topic, nextTurns, nextTurns.length + 1, questionCount, selectedModel);
+    if (question) {
+      setCurrentInterviewQuestion(question);
+    } else {
+      alert('Failed to generate the next question. Please try again.');
+    }
+    setIsInterviewThinking(false);
+    isSubmittingInterviewRef.current = false;
+  };
+
+  const startSpeechRecognition = () => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      setInterviewVoiceError('Trình duyệt này chưa hỗ trợ nhận diện giọng nói. Hãy thử Chrome hoặc Edge.');
+      return;
+    }
+    if (isListening || isInterviewThinking || !isAnswerWindowReady) return;
+    const answerSeconds = level ? INTERVIEW_SECONDS_BY_HSK[level] : 30;
+    setAnswerTimeLeft(answerSeconds);
+    setInterviewAnswer('');
+    setSpeechConfidence(undefined);
+    setInterviewVoiceError('');
+    interviewAnswerRef.current = '';
+    speechConfidenceRef.current = undefined;
+    autoSubmitOnRecognitionEndRef.current = false;
+
+    const recognition = new SpeechRecognition();
+    recognitionRef.current = recognition;
+    recognition.lang = 'zh-CN';
+    recognition.interimResults = true;
+    recognition.maxAlternatives = 1;
+    recognition.continuous = true;
+    setIsListening(true);
+    recognition.onresult = (event: any) => {
+      let transcript = '';
+      let confidence: number | undefined;
+      for (let i = 0; i < event.results.length; i++) {
+        const result = event.results[i]?.[0];
+        if (result?.transcript) {
+          transcript += result.transcript;
+          if (event.results[i]?.isFinal && typeof result.confidence === 'number') {
+            confidence = result.confidence;
+          }
+        }
+      }
+      interviewAnswerRef.current = transcript.trim();
+      speechConfidenceRef.current = confidence;
+      setInterviewAnswer(interviewAnswerRef.current);
+      setSpeechConfidence(confidence);
+    };
+    recognition.onerror = () => {
+      setIsListening(false);
+      if (autoSubmitOnRecognitionEndRef.current) {
+        void submitInterviewAnswer(interviewAnswerRef.current);
+      } else {
+        setInterviewVoiceError('Không nhận diện được giọng nói. Hãy thử lại khi sẵn sàng.');
+      }
+    };
+    recognition.onend = () => {
+      setIsListening(false);
+      if (autoSubmitOnRecognitionEndRef.current) {
+        autoSubmitOnRecognitionEndRef.current = false;
+        void submitInterviewAnswer(interviewAnswerRef.current);
+      }
+    };
+    recognition.start();
+  };
+
+  const stopAndSubmitSpeech = () => {
+    if (isInterviewThinking) return;
+    autoSubmitOnRecognitionEndRef.current = true;
+    if (isListening) {
+      recognitionRef.current?.stop?.();
+      return;
+    }
+    void submitInterviewAnswer(interviewAnswerRef.current);
+  };
+
   const resetWizard = () => {
     window.speechSynthesis?.cancel();
     setDirection(-1);
@@ -125,6 +341,21 @@ export default function QuizWizard({ selectedModel }: QuizWizardProps) {
     setQuestions([]);
     setSelectedAnswers([]);
     setCurrentQIndex(0);
+    setInterviewTurns([]);
+    setCurrentInterviewQuestion('');
+    setInterviewAnswer('');
+    setSpeechConfidence(undefined);
+    setIsListening(false);
+    setIsInterviewThinking(false);
+    setInterviewEvaluation(null);
+    setAnswerTimeLeft(0);
+    setIsAnswerWindowReady(false);
+    setInterviewVoiceError('');
+    interviewAnswerRef.current = '';
+    speechConfidenceRef.current = undefined;
+    autoSubmitOnRecognitionEndRef.current = false;
+    isSubmittingInterviewRef.current = false;
+    recognitionRef.current?.abort?.();
   };
 
   const currentQuestion = questions[currentQIndex];
@@ -210,10 +441,11 @@ export default function QuizWizard({ selectedModel }: QuizWizardProps) {
           {step === 2 && (
             <motion.div key="step2" custom={direction} variants={variants} initial="enter" animate="center" exit="exit" transition={springTransition} className="flex-1 flex flex-col">
               <p className="text-slate-500 mb-6">Select how you want AI to generate exercises</p>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                 {[
                   { id: 'general' as QuizType, name: 'Vocabulary & Grammar', Icon: ListChecks },
                   { id: 'listening' as QuizType, name: 'Listening Dialogue', Icon: Headphones },
+                  { id: 'interview' as QuizType, name: 'Live Interview', Icon: MessageCircle },
                 ].map(({ id, name, Icon }) => (
                   <motion.button
                     key={id}
@@ -249,7 +481,7 @@ export default function QuizWizard({ selectedModel }: QuizWizardProps) {
               </div>
 
               <div className="mt-8">
-                <label className="block text-sm font-bold text-slate-600 mb-3">Number of questions: {questionCount}</label>
+                <label className="block text-sm font-bold text-slate-600 mb-3">{quizType === 'interview' ? 'Interview turns' : 'Number of questions'}: {questionCount}</label>
                 <input
                   type="range"
                   min="1"
@@ -262,13 +494,90 @@ export default function QuizWizard({ selectedModel }: QuizWizardProps) {
 
               <div className="mt-auto flex justify-stretch pt-8 sm:justify-end">
                 <button onClick={handleGenerateQuiz} disabled={!topic || isGenerating} className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-fuchsia-500 to-violet-600 px-6 py-3.5 font-bold text-white shadow-lg shadow-violet-200 transition-all hover:-translate-y-0.5 hover:shadow-xl active:scale-95 disabled:pointer-events-none disabled:opacity-50 sm:w-auto sm:px-8">
-                  {isGenerating ? <><Loader2 className="w-5 h-5 animate-spin" /> Preparing...</> : <><CheckCircle2 className="w-5 h-5" /> Start Quiz</>}
+                  {isGenerating ? <><Loader2 className="w-5 h-5 animate-spin" /> Preparing...</> : <><CheckCircle2 className="w-5 h-5" /> {quizType === 'interview' ? 'Start Interview' : 'Start Quiz'}</>}
                 </button>
               </div>
             </motion.div>
           )}
 
-          {step === 3 && questions.length > 0 && (
+          {step === 3 && quizType === 'interview' && currentInterviewQuestion && (
+            <motion.div key="step3-interview" custom={direction} variants={variants} initial="enter" animate="center" exit="exit" transition={springTransition} className="flex-1 flex flex-col">
+              <div className="mb-5 flex flex-col gap-2 sm:mb-6 sm:flex-row sm:items-center sm:justify-between">
+                <h3 className="text-xl font-bold text-slate-800">Interview {interviewTurns.length + 1} of {questionCount}</h3>
+                <span className="rounded-full bg-violet-50 px-3 py-1 text-xs font-bold text-violet-600">HSK {level}</span>
+              </div>
+
+              <motion.div layout className="mb-5 rounded-2xl border border-violet-100 bg-white p-5 text-center shadow-sm">
+                <div className="mx-auto mb-4 grid h-20 w-20 place-items-center rounded-full bg-violet-100 text-violet-600">
+                  <Volume2 className="h-9 w-9" />
+                </div>
+                <p className="text-sm font-bold uppercase tracking-wider text-violet-500">Teacher is asking by voice</p>
+                <p className="mt-2 text-sm text-slate-500">Listen carefully, then answer with your microphone.</p>
+                <button onClick={() => readAloud(currentInterviewQuestion)} className="mt-4 inline-flex items-center gap-2 rounded-xl bg-violet-50 px-4 py-2 text-xs font-bold text-violet-600 transition-colors hover:bg-violet-100">
+                  <Volume2 className="h-4 w-4" />
+                  Replay question
+                </button>
+              </motion.div>
+
+              <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                {Array.from({ length: questionCount }).map((_, index) => (
+                  <div key={`interview-progress-${index}`} className={`h-2 rounded-full ${index < interviewTurns.length ? 'bg-violet-500' : index === interviewTurns.length ? 'bg-violet-200' : 'bg-slate-100'}`} />
+                ))}
+              </div>
+
+              <div className="mt-auto rounded-2xl border border-slate-100 bg-white p-5 text-center shadow-sm">
+                <div className="mx-auto mb-4 flex h-28 w-28 items-center justify-center rounded-full border-8 border-violet-100 bg-slate-50">
+                  <span className={`text-4xl font-black ${isListening ? 'text-violet-600' : 'text-slate-400'}`}>{answerTimeLeft}</span>
+                </div>
+                <p className="text-sm font-bold text-slate-700">
+                  {isInterviewThinking
+                    ? 'Teacher is preparing the next step...'
+                    : isListening
+                      ? 'Answering by voice...'
+                      : isAnswerWindowReady
+                        ? 'Ready for your voice answer'
+                        : 'Listen to the question first'}
+                </p>
+                <p className="mt-1 text-xs text-slate-400">Answer time for HSK {level}: {level ? INTERVIEW_SECONDS_BY_HSK[level] : 30}s</p>
+                <textarea readOnly disabled aria-hidden="true" tabIndex={-1}
+                  value={interviewAnswer}
+                  onChange={(e) => {
+                    setInterviewAnswer(e.target.value);
+                    setSpeechConfidence(undefined);
+                  }}
+                  rows={4}
+                  placeholder="我觉得..."
+                  className="hidden"
+                />
+                {interviewAnswer.trim() && (
+                  <p className="mt-2 text-xs font-semibold text-emerald-600">Voice captured</p>
+                )}
+                {interviewVoiceError && (
+                  <p className="mt-2 text-xs font-semibold text-rose-500">{interviewVoiceError}</p>
+                )}
+                <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:justify-center">
+                  <button
+                    onClick={startSpeechRecognition}
+                    disabled={isListening || isInterviewThinking || !isAnswerWindowReady}
+                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-violet-600 px-5 py-3 text-sm font-bold text-white shadow-md transition-all hover:bg-violet-700 active:scale-95 disabled:opacity-50"
+                  >
+                    {isListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+                    {isListening ? 'Listening...' : 'Start Voice Answer'}
+                  </button>
+                  <button
+                    onClick={stopAndSubmitSpeech}
+                    disabled={isInterviewThinking || (!isListening && !interviewAnswer.trim())}
+                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-violet-100 bg-white px-5 py-3 text-sm font-bold text-violet-600 transition-all hover:bg-violet-50 active:scale-95 disabled:opacity-50"
+                  >
+                    {isInterviewThinking ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                    Submit Voice Answer
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          )}
+
+          {step === 3 && quizType !== 'interview' && questions.length > 0 && (
             <motion.div key="step3" custom={direction} variants={variants} initial="enter" animate="center" exit="exit" transition={springTransition} className="flex-1 flex flex-col">
               <div className="mb-5 flex flex-col gap-2 sm:mb-6 sm:flex-row sm:items-center sm:justify-between">
                 <h3 className="text-xl font-bold text-slate-800">Question {currentQIndex + 1} of {questions.length}</h3>
@@ -325,7 +634,58 @@ export default function QuizWizard({ selectedModel }: QuizWizardProps) {
             </motion.div>
           )}
 
-          {step === 4 && (
+          {step === 4 && quizType === 'interview' && (
+            <motion.div key="step4-interview" custom={direction} variants={variants} initial="enter" animate="center" exit="exit" transition={springTransition} className="flex-1 flex flex-col items-center text-center py-6">
+              <motion.div initial={{ scale: 0, rotate: -8 }} animate={{ scale: 1, rotate: 0 }} transition={{ type: 'spring', bounce: 0.48 }} className="relative mb-6">
+                <div className="absolute inset-0 bg-fuchsia-400 blur-2xl opacity-40 rounded-full" />
+                <div className="relative z-10 flex h-32 w-32 flex-col items-center justify-center rounded-full border-4 border-white bg-gradient-to-br from-fuchsia-400 to-violet-600 text-white shadow-2xl">
+                  <Star className="mb-1 h-10 w-10 text-yellow-300" />
+                  <span className="text-3xl font-black">{interviewEvaluation?.overallScore ?? 0}</span>
+                </div>
+              </motion.div>
+
+              <h3 className="mb-2 text-2xl font-bold text-slate-800">Interview Result</h3>
+              <p className="mb-6 max-w-md text-slate-500">Estimated level: <span className="font-bold text-violet-600">{interviewEvaluation?.estimatedHskLevel ?? `HSK ${level}`}</span></p>
+
+              {interviewEvaluation ? (
+                <div className="mb-8 grid w-full max-w-3xl grid-cols-1 gap-4 text-left md:grid-cols-3">
+                  {[
+                    ['Grammar', interviewEvaluation.grammarScore],
+                    ['Pronunciation', interviewEvaluation.pronunciationScore],
+                    ['Fluency', interviewEvaluation.fluencyScore],
+                  ].map(([label, value]) => (
+                    <div key={label} className="rounded-2xl border border-violet-100 bg-white p-4 text-center shadow-sm">
+                      <p className="text-sm font-bold text-slate-500">{label}</p>
+                      <p className="mt-2 text-3xl font-black text-slate-800">{value}</p>
+                    </div>
+                  ))}
+                  <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm md:col-span-3">
+                    <p className="mb-2 flex items-center gap-2 font-bold text-slate-800"><Sparkles className="h-4 w-4 text-violet-500" /> Grammar feedback</p>
+                    <p className="text-sm leading-relaxed text-slate-600">{interviewEvaluation.grammarFeedback}</p>
+                  </div>
+                  <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm md:col-span-3">
+                    <p className="mb-2 font-bold text-slate-800">Pronunciation feedback</p>
+                    <p className="text-sm leading-relaxed text-slate-600">{interviewEvaluation.pronunciationFeedback}</p>
+                  </div>
+                  <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm md:col-span-3">
+                    <p className="mb-2 font-bold text-slate-800">Points to improve</p>
+                    <ul className="list-disc space-y-1 pl-5 text-sm text-slate-600">
+                      {interviewEvaluation.improvements.map((item, index) => <li key={`${item}-${index}`}>{item}</li>)}
+                    </ul>
+                  </div>
+                </div>
+              ) : (
+                <p className="mb-8 text-sm text-rose-500">Could not evaluate this interview. Please try again.</p>
+              )}
+
+              <button onClick={resetWizard} className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-violet-100 text-violet-700 font-bold hover:bg-violet-200 transition-all active:scale-95">
+                <RotateCcw className="w-4 h-4" />
+                Try Another Interview
+              </button>
+            </motion.div>
+          )}
+
+          {step === 4 && quizType !== 'interview' && (
             <motion.div key="step4" custom={direction} variants={variants} initial="enter" animate="center" exit="exit" transition={springTransition} className="flex-1 flex flex-col items-center text-center py-8">
               <motion.div initial={{ scale: 0, rotate: -8 }} animate={{ scale: 1, rotate: 0 }} transition={{ type: 'spring', bounce: 0.48 }} className="relative mb-6">
                 <div className="absolute inset-0 bg-fuchsia-400 blur-2xl opacity-40 rounded-full" />

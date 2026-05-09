@@ -7,6 +7,18 @@ export interface WordExplanation {
   meanings?: string[];
   pronunciations?: string[];
   hskLevel: string;
+  radical?: string;
+  strokes?: string;
+  decomposition?: string[];
+  grammarFocus?: string[];
+  commonPatterns?: {
+    pattern: string;
+    meaning: string;
+    example: string;
+    examplePinyin?: string;
+    exampleMeaning: string;
+  }[];
+  commonMistakes?: string[];
   learningTip: string;
   usage?: string;
   usageExamples?: string[];
@@ -25,7 +37,73 @@ export interface QuizQuestion {
   dialogue?: string;
 }
 
-export type QuizType = 'general' | 'listening';
+export type QuizType = 'general' | 'listening' | 'interview';
+
+export interface InterviewTurn {
+  question: string;
+  answer: string;
+  speechConfidence?: number;
+}
+
+export interface InterviewEvaluation {
+  overallScore: number;
+  estimatedHskLevel: string;
+  grammarScore: number;
+  pronunciationScore: number;
+  fluencyScore: number;
+  strengths: string[];
+  improvements: string[];
+  grammarFeedback: string;
+  pronunciationFeedback: string;
+  nextPractice: string[];
+}
+
+const WORD_CACHE_TTL_MS = 12 * 60 * 60 * 1000;
+const wordCache = new Map<string, { result: WordExplanation | null; expiresAt: number }>();
+const pendingWordRequests = new Map<string, Promise<WordExplanation | null>>();
+
+const createWordCacheKey = (word: string, contextContext: string, model: AIModel) =>
+  `${model}::${word.trim().toLowerCase()}::${contextContext.trim().slice(0, 160).toLowerCase()}`;
+
+const getCachedWord = (cacheKey: string) => {
+  const memoryEntry = wordCache.get(cacheKey);
+  if (memoryEntry && memoryEntry.expiresAt > Date.now()) return memoryEntry.result;
+  if (memoryEntry) wordCache.delete(cacheKey);
+
+  try {
+    const raw = sessionStorage.getItem(`word-cache:${cacheKey}`);
+    if (!raw) return undefined;
+    const parsed = JSON.parse(raw) as { result: WordExplanation | null; expiresAt: number };
+    if (parsed.expiresAt <= Date.now()) {
+      sessionStorage.removeItem(`word-cache:${cacheKey}`);
+      return undefined;
+    }
+    wordCache.set(cacheKey, parsed);
+    return parsed.result;
+  } catch {
+    return undefined;
+  }
+};
+
+const setCachedWord = (cacheKey: string, result: WordExplanation | null) => {
+  const entry = { result, expiresAt: Date.now() + WORD_CACHE_TTL_MS };
+  wordCache.set(cacheKey, entry);
+  try {
+    sessionStorage.setItem(`word-cache:${cacheKey}`, JSON.stringify(entry));
+  } catch {}
+};
+
+const compactHistory = (
+  history: { role: 'user' | 'assistant'; content: string }[],
+  maxMessages = 12,
+) =>
+  history
+    .slice(-maxMessages)
+    .map((item) => ({
+      role: item.role,
+      content: item.content.slice(0, 3000),
+    }))
+    .filter((item) => item.content.trim());
 
 async function postJson<TResponse>(
   url: string,
@@ -58,6 +136,14 @@ export async function explainWord(
   contextContext: string,
   model: AIModel = 'gemini',
 ): Promise<WordExplanation | null> {
+  const cacheKey = createWordCacheKey(word, contextContext, model);
+  const cached = getCachedWord(cacheKey);
+  if (cached !== undefined) return cached;
+
+  const pending = pendingWordRequests.get(cacheKey);
+  if (pending) return pending;
+
+  const request = (async () => {
   try {
     const { result } = await postJson<{ result: WordExplanation | null }>(
       '/api/explain-word',
@@ -68,11 +154,18 @@ export async function explainWord(
       },
     );
 
+    setCachedWord(cacheKey, result);
     return result;
   } catch (error) {
     console.error('Explain word API error:', error);
     return null;
+  } finally {
+    pendingWordRequests.delete(cacheKey);
   }
+  })();
+
+  pendingWordRequests.set(cacheKey, request);
+  return request;
 }
 
 export async function generateChineseText(
@@ -123,6 +216,59 @@ export async function generateQuiz(
   }
 }
 
+export async function generateInterviewQuestion(
+  hskLevel: number,
+  topic: string,
+  turns: InterviewTurn[],
+  questionNumber: number,
+  totalQuestions: number,
+  model: AIModel = 'gemini',
+): Promise<string | null> {
+  try {
+    const { result } = await postJson<{ result: string | null }>(
+      '/api/interview-question',
+      {
+        hskLevel,
+        topic,
+        turns,
+        questionNumber,
+        totalQuestions,
+        model,
+      },
+    );
+
+    return result;
+  } catch (error) {
+    console.error('Generate interview question API error:', error);
+    return null;
+  }
+}
+
+export async function evaluateInterview(
+  hskLevel: number,
+  topic: string,
+  turns: InterviewTurn[],
+  model: AIModel = 'gemini',
+): Promise<InterviewEvaluation | null> {
+  try {
+    const { result } = await postJson<{ result: InterviewEvaluation | null }>(
+      '/api/evaluate-interview',
+      {
+        hskLevel,
+        topic,
+        turns,
+        model,
+      },
+      42000,
+    );
+
+    return result;
+  } catch (error) {
+    console.error('Evaluate interview API error:', error);
+    return null;
+  }
+}
+
 export async function chatWithTeacher(
   message: string,
   history: { role: 'user' | 'assistant'; content: string }[],
@@ -134,7 +280,7 @@ export async function chatWithTeacher(
       '/api/chat-teacher',
       {
         message,
-        history,
+        history: compactHistory(history),
         hskLevel,
         model,
       },
@@ -151,20 +297,45 @@ export async function chatNormally(
   message: string,
   history: { role: 'user' | 'assistant'; content: string }[],
   model: AIModel = 'gemini',
+  summary = '',
 ): Promise<string | null> {
   try {
     const { result } = await postJson<{ result: unknown }>(
       '/api/chat',
       {
         message,
-        history,
+        history: compactHistory(history),
         model,
+        summary,
       },
     );
 
     return normalizeChatResult(result);
   } catch (error) {
     console.error('Chat API error:', error);
+    return null;
+  }
+}
+
+export async function summarizeConversation(
+  messages: { role: 'user' | 'assistant'; content: string }[],
+  previousSummary = '',
+  model: AIModel = 'gemini',
+): Promise<string | null> {
+  try {
+    const { result } = await postJson<{ result: string | null }>(
+      '/api/chat-summary',
+      {
+        messages: compactHistory(messages, 24),
+        previousSummary,
+        model,
+      },
+      22000,
+    );
+
+    return result;
+  } catch (error) {
+    console.error('Summarize conversation API error:', error);
     return null;
   }
 }

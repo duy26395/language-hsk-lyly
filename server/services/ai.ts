@@ -18,6 +18,18 @@ export interface WordExplanation {
   meanings?: string[];
   pronunciations?: string[];
   hskLevel: string;
+  radical?: string;
+  strokes?: string;
+  decomposition?: string[];
+  grammarFocus?: string[];
+  commonPatterns?: {
+    pattern: string;
+    meaning: string;
+    example: string;
+    examplePinyin?: string;
+    exampleMeaning: string;
+  }[];
+  commonMistakes?: string[];
   learningTip: string;
   usage?: string;
   usageExamples?: string[];
@@ -146,6 +158,12 @@ Provide the response as a JSON object with this exact structure:
   "meanings": ["all common Vietnamese meanings"],
   "pronunciations": ["other valid pinyin/reading notes if any"],
   "hskLevel": "HSK level string here (e.g. 'HSK 3')",
+  "radical": "main radical(s), Vietnamese explanation if useful",
+  "strokes": "stroke count or stroke-count notes",
+  "decomposition": ["character/component breakdown for memorizing Hanzi"],
+  "grammarFocus": ["key grammar point or word-function notes in Vietnamese"],
+  "commonPatterns": [{"pattern":"grammar/collocation pattern", "meaning":"Vietnamese usage note", "example":"Chinese example", "examplePinyin":"pinyin", "exampleMeaning":"Vietnamese meaning"}],
+  "commonMistakes": ["common Vietnamese learner mistake and correction"],
   "learningTip": "short learning tip in Vietnamese",
   "usage": "how to use this word in Vietnamese",
   "usageExamples": ["short Chinese usage example 1", "short Chinese usage example 2"],
@@ -192,7 +210,7 @@ Respond ONLY with the JSON object. Do not include any thinking or reasoning proc
             },
             {
               role: 'user',
-              content: `Explain the Chinese text (word, phrase, or sentence) "${word}" in context: "${contextContext}". JSON Schema: { word: string, pinyin: string, meaning: string (in Vietnamese), meanings: string[], pronunciations: string[], hskLevel: string, learningTip: string (in Vietnamese), usage: string (in Vietnamese), usageExamples: string[], videoLinks: {title: string, url: string}[], example: string (Chinese), examplePinyin: string, exampleMeaning: string (in Vietnamese), synonyms: string, antonyms: string }. Return 1-3 valid https links from YouTube or Bilibili only in videoLinks. Respond ONLY with JSON.`,
+              content: `Explain the Chinese text (word, phrase, or sentence) "${word}" in context: "${contextContext}". JSON Schema: { word: string, pinyin: string, meaning: string (in Vietnamese), meanings: string[], pronunciations: string[], hskLevel: string, radical: string, strokes: string, decomposition: string[], grammarFocus: string[], commonPatterns: {pattern: string, meaning: string, example: string, examplePinyin: string, exampleMeaning: string}[], commonMistakes: string[], learningTip: string (in Vietnamese), usage: string (in Vietnamese), usageExamples: string[], videoLinks: {title: string, url: string}[], example: string (Chinese), examplePinyin: string, exampleMeaning: string (in Vietnamese), synonyms: string, antonyms: string }. Prioritize Hanzi dictionary-style analysis and practical grammar/collocation notes. Return 1-3 valid https links from YouTube or Bilibili only in videoLinks. Respond ONLY with JSON.`,
             },
           ],
           response_format: { type: 'json_object' },
@@ -222,7 +240,7 @@ Respond ONLY with the JSON object. Do not include any thinking or reasoning proc
       },
       {
         role: 'user',
-        content: `Explain the Chinese text (word, phrase, or sentence) "${word}" in context: "${contextContext}". JSON Schema: { word: string, pinyin: string, meaning: string (in Vietnamese), meanings: string[], pronunciations: string[], hskLevel: string, learningTip: string (in Vietnamese), usage: string (in Vietnamese), usageExamples: string[], videoLinks: {title: string, url: string}[], example: string (Chinese), examplePinyin: string, exampleMeaning: string (in Vietnamese), synonyms: string, antonyms: string }. Return 1-3 valid https links from YouTube or Bilibili only in videoLinks. Do not include reasoning.`,
+        content: `Explain the Chinese text (word, phrase, or sentence) "${word}" in context: "${contextContext}". JSON Schema: { word: string, pinyin: string, meaning: string (in Vietnamese), meanings: string[], pronunciations: string[], hskLevel: string, radical: string, strokes: string, decomposition: string[], grammarFocus: string[], commonPatterns: {pattern: string, meaning: string, example: string, examplePinyin: string, exampleMeaning: string}[], commonMistakes: string[], learningTip: string (in Vietnamese), usage: string (in Vietnamese), usageExamples: string[], videoLinks: {title: string, url: string}[], example: string (Chinese), examplePinyin: string, exampleMeaning: string (in Vietnamese), synonyms: string, antonyms: string }. Prioritize Hanzi dictionary-style analysis and practical grammar/collocation notes. Return 1-3 valid https links from YouTube or Bilibili only in videoLinks. Do not include reasoning.`,
       },
     ],
     response_format: { type: 'json_object' },
@@ -298,6 +316,25 @@ export interface QuizQuestion {
 }
 
 export type QuizType = 'general' | 'listening';
+
+export interface InterviewTurn {
+  question: string;
+  answer: string;
+  speechConfidence?: number;
+}
+
+export interface InterviewEvaluation {
+  overallScore: number;
+  estimatedHskLevel: string;
+  grammarScore: number;
+  pronunciationScore: number;
+  fluencyScore: number;
+  strengths: string[];
+  improvements: string[];
+  grammarFeedback: string;
+  pronunciationFeedback: string;
+  nextPractice: string[];
+}
 
 export async function generateQuiz(
   hskLevel: number,
@@ -466,9 +503,23 @@ export async function chatNormally(
   message: string,
   history: { role: 'user' | 'assistant'; content: string }[],
   model: AIModel = 'gemini',
+  summary = '',
 ): Promise<string | null> {
+  const systemPrompt = `You are Lyly AI, a warm, practical assistant for Vietnamese learners of Chinese.
+Default behavior:
+1) Reply in Vietnamese unless the user asks for another language or is practicing Chinese conversation.
+2) When explaining Chinese, include Simplified Chinese, pinyin, Vietnamese meaning, and short natural examples when useful.
+3) Prefer concise, structured answers with Markdown bullets or tables only when they improve readability.
+4) Correct learner mistakes gently and explain the correction clearly.
+5) Do not include hidden reasoning, <think> tags, or irrelevant meta text.`;
+  const summaryPrompt = summary.trim()
+    ? `Conversation summary so far:\n${summary.trim().slice(0, 4000)}`
+    : '';
+
   if (model === 'gemini') {
     const contents = [
+      { role: 'user', parts: [{ text: systemPrompt }] },
+      ...(summaryPrompt ? [{ role: 'user', parts: [{ text: summaryPrompt }] }] : []),
       ...history.map(h => ({ role: h.role === 'user' ? 'user' : 'model', parts: [{ text: h.content }] })),
       { role: 'user', parts: [{ text: message }] }
     ];
@@ -480,6 +531,8 @@ export async function chatNormally(
   const isGithub = model.startsWith('github-');
   const actualModel = isGithub ? model.replace('github-', '') : model;
   const messages = [
+    { role: 'system', content: systemPrompt },
+    ...(summaryPrompt ? [{ role: 'system', content: summaryPrompt }] : []),
     ...history,
     { role: 'user', content: message }
   ];
@@ -513,6 +566,259 @@ export async function chatNormally(
   return cleanThinkingTags(response.choices[0].message.content || '').trim() || null;
 }
 
+export async function summarizeChatHistory(
+  messagesToSummarize: { role: 'user' | 'assistant'; content: string }[],
+  previousSummary = '',
+  model: AIModel = 'gemini',
+): Promise<string | null> {
+  const transcript = messagesToSummarize
+    .map((message) => `${message.role === 'user' ? 'User' : 'Assistant'}: ${message.content}`)
+    .join('\n\n')
+    .slice(0, 18000);
+  const prompt = `Update the rolling summary for a Chinese-learning chat.
+
+Previous summary:
+${previousSummary.trim() || '(none)'}
+
+New transcript:
+${transcript}
+
+Return a concise Vietnamese summary that preserves:
+- user's goals, preferences, current lesson/topic, HSK level if mentioned
+- important Chinese words, grammar points, corrections, examples already discussed
+- unresolved questions or commitments
+
+Do not add new facts. Return only the updated summary.`;
+
+  if (model === 'gemini') {
+    const result = await generateGeminiContentWithFallback([
+      { role: 'user', parts: [{ text: prompt }] },
+    ]);
+    return cleanThinkingTags(result.text || '').trim() || null;
+  }
+
+  const isGroq = GROQ_PRIORITY_LIST.includes(model) || model === 'llama-3.1-8b-instant';
+  const isGithub = model.startsWith('github-');
+  const actualModel = isGithub ? model.replace('github-', '') : model;
+
+  if (isGroq) {
+    const modelsToTry = [model, ...GROQ_PRIORITY_LIST.filter(m => m !== model)];
+    let lastError: any = null;
+    for (const groqModel of modelsToTry) {
+      try {
+        const client = getGroq();
+        const response = await client.chat.completions.create({
+          model: groqModel,
+          messages: [{ role: 'user', content: prompt }],
+        });
+        return cleanThinkingTags(response.choices[0].message.content || '').trim() || null;
+      } catch (e: any) {
+        lastError = e;
+        console.warn(`Groq model ${groqModel} failed for chat summary: ${e.message}`);
+      }
+    }
+    console.error('All Groq models failed for summarizeChatHistory:', lastError);
+    return null;
+  }
+
+  const client = isGithub ? getGithub() : getOpenAI();
+  const response = await client.chat.completions.create({
+    model: actualModel,
+    messages: [{ role: 'user', content: prompt }],
+  });
+
+  return cleanThinkingTags(response.choices[0].message.content || '').trim() || null;
+}
+
+function normalizeInterviewTurns(turns: InterviewTurn[]): InterviewTurn[] {
+  return turns
+    .filter((turn) => turn && typeof turn.question === 'string' && typeof turn.answer === 'string')
+    .map((turn) => ({
+      question: turn.question.trim().slice(0, 500),
+      answer: turn.answer.trim().slice(0, 800),
+      speechConfidence: typeof turn.speechConfidence === 'number'
+        ? Math.min(Math.max(turn.speechConfidence, 0), 1)
+        : undefined,
+    }))
+    .filter((turn) => turn.question && turn.answer)
+    .slice(-12);
+}
+
+function normalizeInterviewEvaluation(data: any): InterviewEvaluation {
+  const numberInRange = (value: any, fallback: number) => {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) return fallback;
+    return Math.min(Math.max(Math.round(numeric), 0), 100);
+  };
+  const stringArray = (value: any): string[] => (
+    Array.isArray(value)
+      ? value.map((item) => String(item || '').trim()).filter(Boolean)
+      : []
+  );
+
+  return {
+    overallScore: numberInRange(data?.overallScore, 0),
+    estimatedHskLevel: String(data?.estimatedHskLevel || 'HSK ?'),
+    grammarScore: numberInRange(data?.grammarScore, 0),
+    pronunciationScore: numberInRange(data?.pronunciationScore, 0),
+    fluencyScore: numberInRange(data?.fluencyScore, 0),
+    strengths: stringArray(data?.strengths),
+    improvements: stringArray(data?.improvements),
+    grammarFeedback: String(data?.grammarFeedback || ''),
+    pronunciationFeedback: String(data?.pronunciationFeedback || ''),
+    nextPractice: stringArray(data?.nextPractice),
+  };
+}
+
+export async function generateInterviewQuestion(
+  hskLevel: number,
+  topic: string,
+  turns: InterviewTurn[],
+  questionNumber: number,
+  totalQuestions: number,
+  model: AIModel = 'gemini',
+): Promise<string | null> {
+  const safeTurns = normalizeInterviewTurns(turns);
+  const historyText = safeTurns.length
+    ? safeTurns.map((turn, index) => `Q${index + 1}: ${turn.question}\nA${index + 1}: ${turn.answer}`).join('\n')
+    : 'No answers yet.';
+  const systemPrompt = `You are a friendly Chinese HSK interview teacher.
+Ask exactly one interview question in Simplified Chinese.
+Match HSK ${hskLevel}. Topic: ${topic}.
+Question ${questionNumber} of ${totalQuestions}.
+Use natural teacher language, keep it short, and adapt to the learner's previous answers.
+Return only the Chinese question, no pinyin, no translation, no explanation, no <think> tags.`;
+  const userPrompt = `Previous interview:\n${historyText}\n\nAsk the next question now.`;
+
+  if (model === 'gemini') {
+    const result = await generateGeminiContentWithFallback([
+      { role: 'user', parts: [{ text: systemPrompt }] },
+      { role: 'user', parts: [{ text: userPrompt }] },
+    ]);
+    return cleanThinkingTags(result.text || '').trim() || null;
+  }
+
+  const isGroq = GROQ_PRIORITY_LIST.includes(model) || model === 'llama-3.1-8b-instant';
+  const isGithub = model.startsWith('github-');
+  const actualModel = isGithub ? model.replace('github-', '') : model;
+
+  if (isGroq) {
+    const modelsToTry = [model, ...GROQ_PRIORITY_LIST.filter(m => m !== model)];
+    for (const groqModel of modelsToTry) {
+      try {
+        const response = await getGroq().chat.completions.create({
+          model: groqModel,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt },
+          ],
+        });
+        return cleanThinkingTags(response.choices[0].message.content || '').trim() || null;
+      } catch (e: any) {
+        console.warn(`Groq model ${groqModel} failed for interview question: ${e.message}`);
+      }
+    }
+    return null;
+  }
+
+  const response = await (isGithub ? getGithub() : getOpenAI()).chat.completions.create({
+    model: actualModel,
+    messages: [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt },
+    ],
+  });
+  return cleanThinkingTags(response.choices[0].message.content || '').trim() || null;
+}
+
+export async function evaluateInterview(
+  hskLevel: number,
+  topic: string,
+  turns: InterviewTurn[],
+  model: AIModel = 'gemini',
+): Promise<InterviewEvaluation | null> {
+  const safeTurns = normalizeInterviewTurns(turns);
+  const transcript = safeTurns.map((turn, index) => [
+    `Question ${index + 1}: ${turn.question}`,
+    `Student answer: ${turn.answer}`,
+    typeof turn.speechConfidence === 'number' ? `Speech recognition confidence: ${Math.round(turn.speechConfidence * 100)}%` : '',
+  ].filter(Boolean).join('\n')).join('\n\n');
+  const prompt = `Evaluate this Chinese HSK interview for a Vietnamese learner.
+Target level: HSK ${hskLevel}
+Topic: ${topic}
+
+Transcript:
+${transcript || 'No valid answers.'}
+
+Return ONLY JSON with this exact shape:
+{
+  "overallScore": 0-100,
+  "estimatedHskLevel": "HSK 1-6",
+  "grammarScore": 0-100,
+  "pronunciationScore": 0-100,
+  "fluencyScore": 0-100,
+  "strengths": ["Vietnamese feedback"],
+  "improvements": ["Vietnamese feedback"],
+  "grammarFeedback": "Vietnamese feedback with corrected Chinese examples when useful",
+  "pronunciationFeedback": "Vietnamese feedback. If speech confidence is unavailable, say pronunciation is estimated from transcript only.",
+  "nextPractice": ["Vietnamese action item"]
+}
+Score pronunciation using speech recognition confidence when present, but do not pretend to hear audio if only text is available.`;
+
+  if (model === 'gemini') {
+    const result = await generateGeminiContentWithFallback(
+      [{ role: 'user', parts: [{ text: prompt }] }],
+      { responseMimeType: 'application/json' },
+    );
+    try {
+      return normalizeInterviewEvaluation(JSON.parse(cleanJsonContent(result.text || '{}')));
+    } catch {
+      return null;
+    }
+  }
+
+  const isGroq = GROQ_PRIORITY_LIST.includes(model) || model === 'llama-3.1-8b-instant';
+  const isGithub = model.startsWith('github-');
+  const actualModel = isGithub ? model.replace('github-', '') : model;
+
+  if (isGroq) {
+    const modelsToTry = [model, ...GROQ_PRIORITY_LIST.filter(m => m !== model)];
+    for (const groqModel of modelsToTry) {
+      try {
+        const response = await getGroq().chat.completions.create({
+          model: groqModel,
+          messages: [
+            { role: 'system', content: 'You evaluate Chinese speaking practice. Respond ONLY with JSON.' },
+            { role: 'user', content: prompt },
+          ],
+          response_format: { type: 'json_object' },
+        });
+        const content = response.choices[0].message.content;
+        if (content) return normalizeInterviewEvaluation(JSON.parse(cleanJsonContent(content)));
+      } catch (e: any) {
+        console.warn(`Groq model ${groqModel} failed for interview evaluation: ${e.message}`);
+      }
+    }
+    return null;
+  }
+
+  const response = await (isGithub ? getGithub() : getOpenAI()).chat.completions.create({
+    model: actualModel,
+    messages: [
+      { role: 'system', content: 'You evaluate Chinese speaking practice. Respond ONLY with JSON.' },
+      { role: 'user', content: prompt },
+    ],
+    response_format: { type: 'json_object' },
+  });
+  const content = response.choices[0].message.content;
+  if (!content) return null;
+  try {
+    return normalizeInterviewEvaluation(JSON.parse(cleanJsonContent(content)));
+  } catch {
+    return null;
+  }
+}
+
 function normalizeWordExplanation(data: any): WordExplanation {
   const normalizeStringArray = (value: any): string[] => {
     if (Array.isArray(value)) {
@@ -525,6 +831,32 @@ function normalizeWordExplanation(data: any): WordExplanation {
         .filter(Boolean);
     }
     return [];
+  };
+
+  const normalizePatterns = (value: any): WordExplanation['commonPatterns'] => {
+    if (!Array.isArray(value)) return [];
+    return value
+      .map((item) => {
+        if (typeof item === 'string') {
+          const trimmed = item.trim();
+          if (!trimmed) return null;
+          return {
+            pattern: trimmed,
+            meaning: '',
+            example: '',
+            examplePinyin: '',
+            exampleMeaning: '',
+          };
+        }
+        const pattern = String(item?.pattern || item?.structure || '').trim();
+        const meaning = String(item?.meaning || item?.usage || '').trim();
+        const example = String(item?.example || '').trim();
+        const examplePinyin = String(item?.examplePinyin || item?.pinyin || '').trim();
+        const exampleMeaning = String(item?.exampleMeaning || item?.translation || '').trim();
+        if (!pattern && !meaning && !example) return null;
+        return { pattern, meaning, example, examplePinyin, exampleMeaning };
+      })
+      .filter(Boolean) as WordExplanation['commonPatterns'];
   };
 
   const normalizeVideoLinks = (value: any): { title: string; url: string }[] => {
@@ -568,6 +900,12 @@ function normalizeWordExplanation(data: any): WordExplanation {
     hskLevel: typeof data.hskLevel === 'object' 
       ? (data.hskLevel.level?.toString() || data.hskLevel.hsk?.toString() || JSON.stringify(data.hskLevel))
       : String(data.hskLevel || ''),
+    radical: String(data.radical || data.radicals || ''),
+    strokes: String(data.strokes || data.strokeCount || data.totalStrokes || ''),
+    decomposition: normalizeStringArray(data.decomposition || data.components || data.hanziBreakdown),
+    grammarFocus: normalizeStringArray(data.grammarFocus || data.grammarNotes || data.grammar),
+    commonPatterns: normalizePatterns(data.commonPatterns || data.patterns || data.collocations),
+    commonMistakes: normalizeStringArray(data.commonMistakes || data.mistakes),
     learningTip: String(data.learningTip || ''),
     usage: String(data.usage || ''),
     usageExamples: normalizeStringArray(data.usageExamples),
