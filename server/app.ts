@@ -395,55 +395,30 @@ const loadLatestVocabularyData = async () => {
       };
     }
 
-    const result = await db.execute(`
-      SELECT data, id as "fileName" FROM snapshots ORDER BY created_at DESC LIMIT 1
-    `);
-    
-    if (result.rows.length === 0) {
-      // Try legacy file system if DB is empty
-      const candidates: Array<{ dir: string; fileName: string }> = [];
+    const candidates: Array<{ dir: string; fileName: string }> = [];
 
-      for (const dir of getReadableVocDirs()) {
-        try {
-          const files = await fs.readdir(dir);
-          const jsonFiles = files
-            .filter(f => f.startsWith('vocabulary_') && f.endsWith('.json'))
-            .sort()
-            .reverse();
+    for (const dir of getReadableVocDirs()) {
+      try {
+        const files = await fs.readdir(dir);
+        const jsonFiles = files
+          .filter(f => f.startsWith('vocabulary_') && f.endsWith('.json'))
+          .sort()
+          .reverse();
 
-          if (jsonFiles[0]) {
-            candidates.push({ dir, fileName: jsonFiles[0] });
-          }
-        } catch (e) {}
-      }
-
-      if (candidates.length === 0) {
-        return null;
-      }
-
-      candidates.sort((a, b) => b.fileName.localeCompare(a.fileName));
-      const latest = candidates[0];
-      const content = await fs.readFile(path.join(latest.dir, latest.fileName), 'utf-8');
-      
-      // Migration: Save this file to DB
-      const data = JSON.parse(content);
-      const legacyData = Array.isArray(data)
-        ? { words: data, passages: [], notes: [] }
-        : data;
-      await saveNotebookRows(
-        Array.isArray(legacyData.words) ? legacyData.words : [],
-        Array.isArray(legacyData.passages) ? legacyData.passages : [],
-        normalizeSavedNotes(legacyData),
-      );
-
-      return {
-        data: legacyData,
-        fileName: latest.fileName,
-      };
+        if (jsonFiles[0]) {
+          candidates.push({ dir, fileName: jsonFiles[0] });
+        }
+      } catch (e) {}
     }
 
-    const row = result.rows[0];
-    const data = typeof row.data === 'string' ? JSON.parse(row.data) : row.data;
+    if (candidates.length === 0) {
+      return null;
+    }
+
+    candidates.sort((a, b) => b.fileName.localeCompare(a.fileName));
+    const latest = candidates[0];
+    const content = await fs.readFile(path.join(latest.dir, latest.fileName), 'utf-8');
+    const data = JSON.parse(content);
     const legacyData = Array.isArray(data)
       ? { words: data, passages: [], notes: [] }
       : data;
@@ -456,7 +431,7 @@ const loadLatestVocabularyData = async () => {
 
     return {
       data: legacyData,
-      fileName: row.fileName as string,
+      fileName: latest.fileName,
     };
   } catch (error) {
     console.error('Error loading from DB:', error);

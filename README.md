@@ -18,6 +18,7 @@ View your app in AI Studio: https://ai.studio/apps/1601ade1-419a-4ca1-976a-a83b6
    ```env
    GEMINI_API_KEY=your_gemini_api_key
    OPENAI_API_KEY=your_openai_api_key
+   DATABASE_URL=your_neon_pooled_postgres_url
    PORT=3001
    ```
 3. Run the frontend and backend together:

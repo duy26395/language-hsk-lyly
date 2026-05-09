@@ -1,24 +1,17 @@
 import 'dotenv/config';
-import pg from 'pg';
+import { Pool, neonConfig } from '@neondatabase/serverless';
+import ws from 'ws';
 
-const { Pool } = pg;
+neonConfig.webSocketConstructor = ws;
 
-const rawConnectionString = process.env.NETLIFY_DATABASE_URL;
+const rawConnectionString = process.env.DATABASE_URL;
 
 if (!rawConnectionString) {
-  throw new Error('NETLIFY_DATABASE_URL is required to connect to Netlify Database.');
+  throw new Error('DATABASE_URL is required to connect to Neon Postgres.');
 }
 
-const databaseUrl = new URL(rawConnectionString);
-const sslMode = databaseUrl.searchParams.get('sslmode');
-databaseUrl.searchParams.delete('sslmode');
-const connectionString = databaseUrl.toString();
-
 const pool = new Pool({
-  connectionString,
-  ssl: sslMode
-    ? { rejectUnauthorized: false }
-    : undefined,
+  connectionString: rawConnectionString,
 });
 
 type ExecuteInput = string | {
@@ -96,11 +89,5 @@ export async function initDb() {
     ADD CONSTRAINT notebook_type_check CHECK (type IN ('words', 'passages', 'notes'))
   `);
 
-  await db.execute(`
-    CREATE TABLE IF NOT EXISTS snapshots (
-      id TEXT PRIMARY KEY,
-      data JSONB NOT NULL,
-      created_at BIGINT NOT NULL
-    )
-  `);
+  await db.execute('DROP TABLE IF EXISTS snapshots');
 }
