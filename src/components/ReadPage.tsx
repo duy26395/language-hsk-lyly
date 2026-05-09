@@ -66,14 +66,6 @@ export default function ReadPage({
         <div className="flex flex-col gap-3 print:hidden sm:flex-row sm:items-center sm:justify-between mb-5">
 
         <h1 className="text-2xl font-bold tracking-tight text-slate-800 md:text-3xl">Reading Area</h1>
-        {readText && (
-          <button
-            onClick={() => setReadText('')}
-            className="rounded-lg px-3 py-2 text-sm font-semibold text-violet-400 transition-colors hover:bg-violet-50 hover:text-violet-600"
-          >
-            Clear
-          </button>
-        )}
       </div>
 
       {!readText ? (
@@ -110,7 +102,14 @@ export default function ReadPage({
         </div>
       ) : (
         <div className="relative flex min-w-0 flex-1 flex-col gap-4">
-          <div className="mb-1 flex flex-wrap justify-end gap-2">
+          <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
+            <button
+              onClick={() => setReadText('')}
+              className="rounded-lg px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-violet-400 transition-colors hover:bg-violet-50 hover:text-violet-600"
+            >
+              ← Clear
+            </button>
+            <div className="flex flex-wrap justify-end gap-2">
             <button
               onClick={() => {
                 if (window.speechSynthesis) window.speechSynthesis.cancel();
@@ -128,6 +127,7 @@ export default function ReadPage({
 
             </button>
             <SavePassageButton text={readText} onSave={onSavePassage} />
+            </div>
           </div>
           <div className={`${cardClasses} flex-1`}>
             {/* Subtle background decoration */}
