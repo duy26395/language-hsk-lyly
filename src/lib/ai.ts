@@ -59,11 +59,14 @@ export interface InterviewEvaluation {
 }
 
 const WORD_CACHE_TTL_MS = 12 * 60 * 60 * 1000;
+const WORD_CACHE_VERSION = 'pronunciations-v2';
 const wordCache = new Map<string, { result: WordExplanation | null; expiresAt: number }>();
 const pendingWordRequests = new Map<string, Promise<WordExplanation | null>>();
 
-const createWordCacheKey = (word: string, contextContext: string, model: AIModel) =>
-  `${model}::${word.trim().toLowerCase()}::${contextContext.trim().slice(0, 160).toLowerCase()}`;
+const createWordCacheKey = (word: string, contextContext: string, model: AIModel, race = false) => {
+  const mode = race ? 'race' : 'single';
+  return `${WORD_CACHE_VERSION}::${mode}::${model}::${word.trim().toLowerCase()}::${contextContext.trim().slice(0, 160).toLowerCase()}`;
+};
 
 const getCachedWord = (cacheKey: string) => {
   const memoryEntry = wordCache.get(cacheKey);
@@ -135,8 +138,9 @@ export async function explainWord(
   word: string,
   contextContext: string,
   model: AIModel = 'gemini',
+  race = false,
 ): Promise<WordExplanation | null> {
-  const cacheKey = createWordCacheKey(word, contextContext, model);
+  const cacheKey = createWordCacheKey(word, contextContext, model, race);
   const cached = getCachedWord(cacheKey);
   if (cached !== undefined) return cached;
 
@@ -151,6 +155,7 @@ export async function explainWord(
         word,
         context: contextContext,
         model,
+        race,
       },
     );
 

@@ -57,6 +57,30 @@ const getMeaningList = (item: WordExplanation) => {
   return getList(item.meaning);
 };
 
+const getPronunciationKey = (pronunciation: string) =>
+  pronunciation
+    .replace(/\s+/g, '')
+    .trim()
+    .toLowerCase();
+
+const getPronunciationSpeechText = (pronunciation: string) =>
+  pronunciation.replace(/\([^)]*\)/g, '').replace(/\s+/g, ' ').trim();
+
+const getAlternatePronunciationList = (item: WordExplanation) => {
+  const seen = new Set<string>();
+  const mainKey = getPronunciationKey(item.pinyin);
+
+  return getList(item.pronunciations)
+    .map((pronunciation) => pronunciation.trim())
+    .filter((pronunciation) => {
+      if (!pronunciation) return false;
+      const key = getPronunciationKey(pronunciation);
+      if (!key || key === mainKey || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+};
+
 const getSafeVideoLinks = (item: WordExplanation) => {
   const allowedHosts = new Set([
     'youtube.com',
@@ -124,7 +148,7 @@ export default function SearchPage({
   const [explanation, setExplanation] = useState<WordExplanation | null>(null);
   const [history, setHistory] = useState<string[]>([]);
   const [error, setError] = useState('');
-  const [speakingWord, setSpeakingWord] = useState(false);
+  const [speakingKey, setSpeakingKey] = useState<string | null>(null);
   const requestSeqRef = useRef(0);
 
   const handleSearch = async (event?: React.FormEvent, overrideQuery?: string) => {
@@ -137,7 +161,7 @@ export default function SearchPage({
     setLoading(true);
     setError('');
 
-    const result = await explainWord(searchTerm, 'Tra theo phong cách từ điển Hanzi, nhấn mạnh cách dùng và ngữ pháp trọng tâm.', selectedModel);
+    const result = await explainWord(searchTerm, 'Tra theo phong cách từ điển Hanzi, nhấn mạnh cách dùng và ngữ pháp trọng tâm.', selectedModel, true);
     if (requestSeq !== requestSeqRef.current) return;
 
     if (result) {
@@ -150,28 +174,33 @@ export default function SearchPage({
     setLoading(false);
   };
 
-  const handleSpeakWord = (word: string) => {
-    if (speakingWord) {
+  const handleSpeakText = (text: string, key: string, rate = 0.9) => {
+    if (speakingKey === key) {
       window.speechSynthesis?.cancel();
-      setSpeakingWord(false);
+      setSpeakingKey(null);
       return;
     }
 
     if (!window.speechSynthesis) return;
 
+    const speechText = text.trim();
+    if (!speechText) return;
+
     window.speechSynthesis.cancel();
-    setSpeakingWord(true);
-    const utterance = new SpeechSynthesisUtterance(word);
+    setSpeakingKey(key);
+    const utterance = new SpeechSynthesisUtterance(speechText);
     utterance.lang = 'zh-CN';
-    utterance.rate = 0.9;
-    utterance.onend = () => setSpeakingWord(false);
-    utterance.onerror = () => setSpeakingWord(false);
+    utterance.rate = rate;
+    utterance.onend = () => setSpeakingKey(null);
+    utterance.onerror = () => setSpeakingKey(null);
     window.speechSynthesis.speak(utterance);
 
     window.setTimeout(() => {
-      if (!window.speechSynthesis.speaking) setSpeakingWord(false);
+      if (!window.speechSynthesis.speaking) setSpeakingKey(null);
     }, 1500);
   };
+
+  const alternatePronunciations = explanation ? getAlternatePronunciationList(explanation) : [];
 
   return (
     <motion.div
@@ -294,16 +323,49 @@ export default function SearchPage({
                         {explanation.hskLevel || 'HSK'}
                       </span>
                     </div>
-                    <p className="break-words text-xl font-bold text-slate-500">{explanation.pinyin}</p>
+                    <div className="mt-2 min-w-0">
+                      <p className="mb-1 text-xs font-bold uppercase tracking-wider text-slate-400">Phiên âm chính</p>
+                      <p className="break-words text-xl font-bold text-slate-500">{explanation.pinyin}</p>
+                    </div>
+                    {alternatePronunciations.length > 0 && (
+                      <div className="mt-3 min-w-0">
+                        <p className="mb-2 text-xs font-bold uppercase tracking-wider text-violet-500">
+                          Phiên âm khác ({alternatePronunciations.length})
+                        </p>
+                        <div className="flex min-w-0 flex-wrap gap-2">
+                          {alternatePronunciations.map((pronunciation, index) => (
+                            <span
+                              key={`${pronunciation}-${index}`}
+                              className="inline-flex max-w-full items-center gap-1.5 rounded-lg border border-violet-100 bg-violet-50/70 py-1 pl-2.5 pr-1 text-base font-bold text-violet-700"
+                            >
+                              <span className="min-w-0 break-words">{pronunciation}</span>
+                              <button
+                                type="button"
+                                onClick={() => handleSpeakText(getPronunciationSpeechText(pronunciation), `pronunciation-${index}`, 0.8)}
+                                className="shrink-0 rounded-md p-1 text-violet-600 transition-colors hover:bg-white/70"
+                                aria-label={`Đọc phiên âm ${pronunciation}`}
+                                title={`Đọc phiên âm ${pronunciation}`}
+                              >
+                                {speakingKey === `pronunciation-${index}` ? (
+                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                ) : (
+                                  <Volume2 className="h-3.5 w-3.5" />
+                                )}
+                              </button>
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                   <button
                     type="button"
-                    onClick={() => void handleSpeakWord(explanation.word)}
+                    onClick={() => handleSpeakText(explanation.word, 'word')}
                     className="shrink-0 rounded-xl bg-slate-900 p-3 text-white shadow-sm transition-colors hover:bg-slate-700 z-index-1"
-                    aria-label={speakingWord ? 'Dừng phát âm' : 'Đọc từ'}
-                    title={speakingWord ? 'Dừng phát âm' : 'Đọc từ'}
+                    aria-label={speakingKey === 'word' ? 'Dừng phát âm' : 'Đọc từ'}
+                    title={speakingKey === 'word' ? 'Dừng phát âm' : 'Đọc từ'}
                   >
-                    {speakingWord ? <Loader2 className="h-5 w-5 animate-spin" /> : <Volume2 className="h-5 w-5" />}
+                    {speakingKey === 'word' ? <Loader2 className="h-5 w-5 animate-spin" /> : <Volume2 className="h-5 w-5" />}
                   </button>
                 </div>
 

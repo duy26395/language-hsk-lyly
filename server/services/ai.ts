@@ -11,6 +11,10 @@ const GROQ_PRIORITY_LIST: AIModel[] = [
   'llama-3.1-8b-instant'
 ];
 
+interface ExplainWordOptions {
+  fallbackGroq?: boolean;
+}
+
 export interface WordExplanation {
   word: string;
   pinyin: string;
@@ -51,6 +55,46 @@ const GEMINI_MODEL_FALLBACKS = [
   'gemini-2.0-flash',
   'gemini-1.5-flash',
 ] as const;
+
+const WORD_EXPLANATION_FIELDS = [
+  'word',
+  'pinyin',
+  'meaning',
+  'meanings',
+  'pronunciations',
+  'hskLevel',
+  'radical',
+  'strokes',
+  'decomposition',
+  'grammarFocus',
+  'commonPatterns',
+  'commonMistakes',
+  'learningTip',
+  'usage',
+  'usageExamples',
+  'videoLinks',
+  'example',
+  'examplePinyin',
+  'exampleMeaning',
+  'synonyms',
+  'antonyms',
+].join(',');
+
+const EXPLAIN_WORD_SYSTEM_PROMPT =
+  'Chinese dictionary assistant. Return only valid JSON. Vietnamese for meanings, usage, tips, mistakes, pattern notes, and exampleMeaning. No reasoning.';
+
+function createExplainWordPrompt(word: string, contextContext: string) {
+  return [
+    `Input=${JSON.stringify(word)}.`,
+    `Context=${JSON.stringify(contextContext)}.`,
+    `Return JSON with fields: ${WORD_EXPLANATION_FIELDS}.`,
+    'Use empty strings/arrays if unknown.',
+    'pronunciations: all valid pinyin/readings, including main pinyin and alternates.',
+    'commonPatterns items: {pattern,meaning,example,examplePinyin,exampleMeaning}.',
+    'videoLinks: 0-3 https YouTube/Bilibili links only.',
+    'Prioritize Hanzi dictionary analysis, common Vietnamese meanings, practical usage, grammar, learner mistakes.',
+  ].join(' ');
+}
 
 function getOpenAI() {
   const openAiApiKey = process.env.OPENAI_API_KEY;
@@ -106,6 +150,32 @@ function getGithub() {
   return github;
 }
 
+function hasProviderForModel(model: AIModel) {
+  if (model === 'gemini') return Boolean(process.env.GEMINI_API_KEY);
+  if (model.startsWith('github-')) return Boolean(process.env.GITHUB_API_KEY);
+  if (GROQ_PRIORITY_LIST.includes(model) || model === 'llama-3.1-8b-instant') {
+    return Boolean(process.env.GROQ_API_KEY);
+  }
+  return Boolean(process.env.OPENAI_API_KEY);
+}
+
+function getExplainRaceModels(preferredModel: AIModel) {
+  const candidates: AIModel[] = [];
+  const add = (model: AIModel) => {
+    if (candidates.includes(model) || !hasProviderForModel(model)) return;
+    candidates.push(model);
+  };
+
+  add(preferredModel);
+  add('qwen/qwen3-32b');
+  add('llama-3.1-8b-instant');
+  add('gemini');
+  add('github-gpt-4o-mini');
+  add('gpt-3.5-turbo');
+
+  return candidates.slice(0, 3);
+}
+
 function cleanThinkingTags(content: string): string {
   return content.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
 }
@@ -146,42 +216,13 @@ export async function explainWord(
   word: string,
   contextContext: string,
   model: AIModel = 'gemini',
+  options: ExplainWordOptions = {},
 ): Promise<WordExplanation | null> {
-  if (model === 'gemini') {
-    const prompt = `Explain the Chinese text (word, phrase, or sentence) "${word}" in the following context: "${contextContext}".
-Important: All explanations (meaning, learningTip, exampleMeaning) MUST be in Vietnamese.
-Provide the response as a JSON object with this exact structure:
-{
-  "word": "${word}",
-  "pinyin": "pinyin here",
-  "meaning": "Vietnamese meaning here",
-  "meanings": ["all common Vietnamese meanings"],
-  "pronunciations": ["other valid pinyin/reading notes if any"],
-  "hskLevel": "HSK level string here (e.g. 'HSK 3')",
-  "radical": "main radical(s), Vietnamese explanation if useful",
-  "strokes": "stroke count or stroke-count notes",
-  "decomposition": ["character/component breakdown for memorizing Hanzi"],
-  "grammarFocus": ["key grammar point or word-function notes in Vietnamese"],
-  "commonPatterns": [{"pattern":"grammar/collocation pattern", "meaning":"Vietnamese usage note", "example":"Chinese example", "examplePinyin":"pinyin", "exampleMeaning":"Vietnamese meaning"}],
-  "commonMistakes": ["common Vietnamese learner mistake and correction"],
-  "learningTip": "short learning tip in Vietnamese",
-  "usage": "how to use this word in Vietnamese",
-  "usageExamples": ["short Chinese usage example 1", "short Chinese usage example 2"],
-  "videoLinks": [{"title":"video title", "url":"https://..."}],
-  "example": "example sentence in Chinese",
-  "examplePinyin": "pinyin of the example sentence",
-  "exampleMeaning": "example sentence meaning in Vietnamese",
-  "synonyms": "synonyms separated by comma",
-  "antonyms": "antonyms separated by comma"
-}
-For videoLinks:
-- Include 1 to 3 links only.
-- URL must start with https:// and be directly clickable.
-- Use only YouTube or Bilibili links.
-Respond ONLY with the JSON object. Do not include any thinking or reasoning process.`;
+  const explainPrompt = createExplainWordPrompt(word, contextContext);
 
+  if (model === 'gemini') {
     const result = await generateGeminiContentWithFallback(
-      [{ role: 'user', parts: [{ text: prompt }] }],
+      [{ role: 'user', parts: [{ text: `${EXPLAIN_WORD_SYSTEM_PROMPT} ${explainPrompt}` }] }],
       { responseMimeType: 'application/json' },
     );
 
@@ -195,7 +236,9 @@ Respond ONLY with the JSON object. Do not include any thinking or reasoning proc
   const actualModel = isGithub ? model.replace('github-', '') : model;
   
   if (isGroq) {
-    const modelsToTry = [model, ...GROQ_PRIORITY_LIST.filter(m => m !== model)];
+    const modelsToTry = options.fallbackGroq === false
+      ? [model]
+      : [model, ...GROQ_PRIORITY_LIST.filter(m => m !== model)];
     let lastError: any = null;
 
     for (const groqModel of modelsToTry) {
@@ -206,11 +249,11 @@ Respond ONLY with the JSON object. Do not include any thinking or reasoning proc
           messages: [
             {
               role: 'system',
-              content: 'You are a helpful Chinese language assistant. Respond ONLY with a JSON object. All explanation fields (meaning, meanings, learningTip, usage, exampleMeaning) MUST be in Vietnamese.',
+              content: EXPLAIN_WORD_SYSTEM_PROMPT,
             },
             {
               role: 'user',
-              content: `Explain the Chinese text (word, phrase, or sentence) "${word}" in context: "${contextContext}". JSON Schema: { word: string, pinyin: string, meaning: string (in Vietnamese), meanings: string[], pronunciations: string[], hskLevel: string, radical: string, strokes: string, decomposition: string[], grammarFocus: string[], commonPatterns: {pattern: string, meaning: string, example: string, examplePinyin: string, exampleMeaning: string}[], commonMistakes: string[], learningTip: string (in Vietnamese), usage: string (in Vietnamese), usageExamples: string[], videoLinks: {title: string, url: string}[], example: string (Chinese), examplePinyin: string, exampleMeaning: string (in Vietnamese), synonyms: string, antonyms: string }. Prioritize Hanzi dictionary-style analysis and practical grammar/collocation notes. Return 1-3 valid https links from YouTube or Bilibili only in videoLinks. Respond ONLY with JSON.`,
+              content: explainPrompt,
             },
           ],
           response_format: { type: 'json_object' },
@@ -236,11 +279,11 @@ Respond ONLY with the JSON object. Do not include any thinking or reasoning proc
     messages: [
       {
         role: 'system',
-        content: 'You are a helpful Chinese language assistant. Respond ONLY with a JSON object. All explanation fields (meaning, meanings, learningTip, usage, exampleMeaning) MUST be in Vietnamese. Ensure hskLevel is a string. Do not include any <think> tags or reasoning process.',
+        content: EXPLAIN_WORD_SYSTEM_PROMPT,
       },
       {
         role: 'user',
-        content: `Explain the Chinese text (word, phrase, or sentence) "${word}" in context: "${contextContext}". JSON Schema: { word: string, pinyin: string, meaning: string (in Vietnamese), meanings: string[], pronunciations: string[], hskLevel: string, radical: string, strokes: string, decomposition: string[], grammarFocus: string[], commonPatterns: {pattern: string, meaning: string, example: string, examplePinyin: string, exampleMeaning: string}[], commonMistakes: string[], learningTip: string (in Vietnamese), usage: string (in Vietnamese), usageExamples: string[], videoLinks: {title: string, url: string}[], example: string (Chinese), examplePinyin: string, exampleMeaning: string (in Vietnamese), synonyms: string, antonyms: string }. Prioritize Hanzi dictionary-style analysis and practical grammar/collocation notes. Return 1-3 valid https links from YouTube or Bilibili only in videoLinks. Do not include reasoning.`,
+        content: explainPrompt,
       },
     ],
     response_format: { type: 'json_object' },
@@ -254,6 +297,39 @@ Respond ONLY with the JSON object. Do not include any thinking or reasoning proc
   } catch (e) {
     console.error('JSON Parse Error:', e, content);
     return null;
+  }
+}
+
+export async function explainWordFastest(
+  word: string,
+  contextContext: string,
+  preferredModel: AIModel = 'gemini',
+): Promise<{ result: WordExplanation | null; model: AIModel }> {
+  const raceModels = getExplainRaceModels(preferredModel);
+
+  if (raceModels.length <= 1) {
+    return {
+      result: await explainWord(word, contextContext, preferredModel),
+      model: preferredModel,
+    };
+  }
+
+  const attempts = raceModels.map(async (raceModel) => {
+    const result = await explainWord(word, contextContext, raceModel, { fallbackGroq: false });
+    if (!result) {
+      throw new Error(`No explanation from ${raceModel}`);
+    }
+    return { result, model: raceModel };
+  });
+
+  try {
+    return await Promise.any(attempts);
+  } catch (error) {
+    console.warn('All explain-word race models failed, falling back to preferred model:', error);
+    return {
+      result: await explainWord(word, contextContext, preferredModel),
+      model: preferredModel,
+    };
   }
 }
 
@@ -822,7 +898,7 @@ Score pronunciation using speech recognition confidence when present, but do not
 function normalizeWordExplanation(data: any): WordExplanation {
   const normalizeStringArray = (value: any): string[] => {
     if (Array.isArray(value)) {
-      return value.map((item) => String(item || '').trim()).filter(Boolean);
+      return value.flatMap((item) => normalizeStringArray(item));
     }
     if (typeof value === 'string' && value.trim()) {
       return value
@@ -830,7 +906,27 @@ function normalizeWordExplanation(data: any): WordExplanation {
         .map((item) => item.trim())
         .filter(Boolean);
     }
+    if (value && typeof value === 'object') {
+      const text = value.pinyin || value.reading || value.pronunciation || value.value || value.text;
+      const note = value.note || value.meaning || value.usage;
+      const normalizedText = String(text || '').trim();
+      const normalizedNote = String(note || '').trim();
+      if (normalizedText && normalizedNote) return [`${normalizedText} (${normalizedNote})`];
+      if (normalizedText) return [normalizedText];
+    }
     return [];
+  };
+
+  const uniqueStrings = (values: string[]) => {
+    const seen = new Set<string>();
+    return values.filter((value) => {
+      const normalized = value.trim();
+      if (!normalized) return false;
+      const key = normalized.replace(/\s+/g, ' ').toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
   };
 
   const normalizePatterns = (value: any): WordExplanation['commonPatterns'] => {
@@ -891,12 +987,24 @@ function normalizeWordExplanation(data: any): WordExplanation {
       .filter(Boolean) as { title: string; url: string }[];
   };
 
+  const pinyinCandidates = normalizeStringArray(data.pinyin || data.mainPinyin || data.reading);
+  const pinyin = pinyinCandidates[0] || '';
+  const pronunciations = uniqueStrings([
+    ...pinyinCandidates,
+    ...normalizeStringArray(data.pronunciations),
+    ...normalizeStringArray(data.pronunciation),
+    ...normalizeStringArray(data.readings),
+    ...normalizeStringArray(data.alternatePinyin),
+    ...normalizeStringArray(data.alternatePronunciations),
+    ...normalizeStringArray(data.otherPronunciations),
+  ]);
+
   return {
     word: String(data.word || ''),
-    pinyin: String(data.pinyin || ''),
+    pinyin,
     meaning: String(data.meaning || ''),
     meanings: normalizeStringArray(data.meanings),
-    pronunciations: normalizeStringArray(data.pronunciations),
+    pronunciations,
     hskLevel: typeof data.hskLevel === 'object' 
       ? (data.hskLevel.level?.toString() || data.hskLevel.hsk?.toString() || JSON.stringify(data.hskLevel))
       : String(data.hskLevel || ''),

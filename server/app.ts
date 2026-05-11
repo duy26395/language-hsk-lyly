@@ -3,7 +3,7 @@ import express from 'express';
 import os from 'node:os';
 import path from 'node:path';
 import fs from 'node:fs/promises';
-import { AIModel, QuizType, explainWord, generateChineseText, generateQuiz, chatWithTeacher, chatNormally, summarizeChatHistory, generateInterviewQuestion, evaluateInterview } from './services/ai';
+import { AIModel, QuizType, explainWord, explainWordFastest, generateChineseText, generateQuiz, chatWithTeacher, chatNormally, summarizeChatHistory, generateInterviewQuestion, evaluateInterview } from './services/ai';
 
 import { runSpeakPipeline, sanitizeVoiceHistory } from './services/voice-pipeline';
 import { normalizeChineseVoice, synthesizeChineseSpeech } from './services/tts-provider';
@@ -24,6 +24,7 @@ const requestBuckets = new Map<string, { count: number; resetAt: number }>();
 const RATE_LIMIT_WINDOW_MS = 60_000;
 const RATE_LIMIT_MAX_REQUESTS = 200;
 const EXPLAIN_CACHE_TTL_MS = 12 * 60 * 60 * 1000;
+const EXPLAIN_CACHE_VERSION = 'pronunciations-v2';
 const explainCache = new Map<string, { result: unknown; expiresAt: number }>();
 
 app.use('/api', (req, res, next) => {
@@ -52,8 +53,9 @@ function normalizeModel(model: unknown): AIModel {
     : 'qwen/qwen3-32b';
 }
 
-function createExplainCacheKey(word: string, context: string, model: AIModel) {
-  return `${model}::${word.trim().toLowerCase()}::${context.trim().slice(0, 160).toLowerCase()}`;
+function createExplainCacheKey(word: string, context: string, model: AIModel, race = false) {
+  const mode = race ? 'race' : 'single';
+  return `${EXPLAIN_CACHE_VERSION}::${mode}::${model}::${word.trim().toLowerCase()}::${context.trim().slice(0, 160).toLowerCase()}`;
 }
 
 function getExplainCache(cacheKey: string) {
@@ -96,10 +98,11 @@ app.get('/api/health', (_req, res) => {
 
 app.post('/api/explain-word', async (req, res) => {
   try {
-    const { word, context, model } = req.body as {
+    const { word, context, model, race } = req.body as {
       word?: unknown;
       context?: unknown;
       model?: unknown;
+      race?: unknown;
     };
 
     if (typeof word !== 'string' || !word.trim()) {
@@ -113,15 +116,18 @@ app.post('/api/explain-word', async (req, res) => {
     const safeWord = word.trim().slice(0, 500);
     const safeContext = context.slice(0, 1000);
     const safeModel = normalizeModel(model);
-    const cacheKey = createExplainCacheKey(safeWord, safeContext, safeModel);
+    const useRace = race === true;
+    const cacheKey = createExplainCacheKey(safeWord, safeContext, safeModel, useRace);
     const cached = getExplainCache(cacheKey);
     if (cached !== undefined) {
       return res.json({ result: cached, cached: true });
     }
 
-    const result = await explainWord(safeWord, safeContext, safeModel);
+    const { result, model: resolvedModel } = useRace
+      ? await explainWordFastest(safeWord, safeContext, safeModel)
+      : { result: await explainWord(safeWord, safeContext, safeModel), model: safeModel };
     setExplainCache(cacheKey, result);
-    return res.json({ result });
+    return res.json({ result, resolvedModel, race: useRace });
   } catch (error) {
     console.error('/api/explain-word error:', error);
     return res.status(500).json({ error: 'Failed to explain word.' });
