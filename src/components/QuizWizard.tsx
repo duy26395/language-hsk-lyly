@@ -26,13 +26,13 @@ import {
   generateInterviewQuestion,
   evaluateInterview,
   generateQuiz,
-  QuizQuestion,
-  AIModel,
-  QuizType,
-  readAloud,
+  type QuizQuestion,
+  type AIModel,
+  type QuizType,
   type InterviewEvaluation,
   type InterviewTurn,
 } from '../lib/ai';
+import { readAloud } from '../lib/voice';
 
 const HSK_LEVELS = [1, 2, 3, 4, 5, 6];
 const TOPICS = [
@@ -80,6 +80,7 @@ export default function QuizWizard({ selectedModel }: QuizWizardProps) {
   const [answerTimeLeft, setAnswerTimeLeft] = useState(0);
   const [isAnswerWindowReady, setIsAnswerWindowReady] = useState(false);
   const [interviewVoiceError, setInterviewVoiceError] = useState('');
+  const [wizardError, setWizardError] = useState('');
 
   const recognitionRef = useRef<any | null>(null);
   const interviewAnswerRef = useRef('');
@@ -128,26 +129,15 @@ export default function QuizWizard({ selectedModel }: QuizWizardProps) {
     };
   }, [currentInterviewQuestion, level, quizType, step]);
 
-  useEffect(() => {
-    if (!isListening || answerTimeLeft <= 0) return;
-    const timeoutId = window.setTimeout(() => {
-      setAnswerTimeLeft((current) => Math.max(current - 1, 0));
-    }, 1000);
-    return () => window.clearTimeout(timeoutId);
-  }, [answerTimeLeft, isListening]);
-
-  useEffect(() => {
-    if (!isListening || answerTimeLeft > 0) return;
-    autoSubmitOnRecognitionEndRef.current = true;
-    recognitionRef.current?.stop?.();
-  }, [answerTimeLeft, isListening]);
 
   const nextStep = () => {
+    setWizardError('');
     setDirection(1);
     setStep((prev) => prev + 1);
   };
 
   const prevStep = () => {
+    setWizardError('');
     setDirection(-1);
     setStep((prev) => prev - 1);
   };
@@ -156,6 +146,7 @@ export default function QuizWizard({ selectedModel }: QuizWizardProps) {
     if (!level || !topic) return;
     window.speechSynthesis?.cancel();
     setIsGenerating(true);
+    setWizardError('');
     if (quizType === 'interview') {
       const question = await generateInterviewQuestion(level, topic, [], 1, questionCount, selectedModel);
       if (question) {
@@ -166,7 +157,7 @@ export default function QuizWizard({ selectedModel }: QuizWizardProps) {
         setInterviewEvaluation(null);
         nextStep();
       } else {
-        alert('Failed to prepare interview. Please try again.');
+        setWizardError('Failed to prepare interview. Please try again.');
       }
       setIsGenerating(false);
       return;
@@ -178,7 +169,7 @@ export default function QuizWizard({ selectedModel }: QuizWizardProps) {
       setSelectedAnswers(new Array(result.length).fill(-1));
       nextStep();
     } else {
-      alert('Failed to generate quiz. Please try again.');
+      setWizardError('Failed to generate quiz. Please try again.');
     }
     setIsGenerating(false);
   };
@@ -255,7 +246,7 @@ export default function QuizWizard({ selectedModel }: QuizWizardProps) {
     if (question) {
       setCurrentInterviewQuestion(question);
     } else {
-      alert('Failed to generate the next question. Please try again.');
+      setWizardError('Failed to generate the next question. Please try again.');
     }
     setIsInterviewThinking(false);
     isSubmittingInterviewRef.current = false;
@@ -267,9 +258,12 @@ export default function QuizWizard({ selectedModel }: QuizWizardProps) {
       setInterviewVoiceError('Trình duyệt này chưa hỗ trợ nhận diện giọng nói. Hãy thử Chrome hoặc Edge.');
       return;
     }
-    if (isListening || isInterviewThinking || !isAnswerWindowReady) return;
-    const answerSeconds = level ? INTERVIEW_SECONDS_BY_HSK[level] : 30;
-    setAnswerTimeLeft(answerSeconds);
+    if (isListening || isInterviewThinking) return;
+
+    // Interrupt teacher's voice if speaking, and set ready status
+    window.speechSynthesis?.cancel();
+    setIsAnswerWindowReady(true);
+
     setInterviewAnswer('');
     setSpeechConfidence(undefined);
     setInterviewVoiceError('');
@@ -328,6 +322,35 @@ export default function QuizWizard({ selectedModel }: QuizWizardProps) {
     }
     void submitInterviewAnswer(interviewAnswerRef.current);
   };
+
+  // 1. Countdown timer starts as soon as question loads (when teacher starts speaking)
+  useEffect(() => {
+    if (step !== 3 || quizType !== 'interview' || isInterviewThinking || answerTimeLeft <= 0) return;
+    const timeoutId = window.setTimeout(() => {
+      setAnswerTimeLeft((current) => Math.max(current - 1, 0));
+    }, 1000);
+    return () => window.clearTimeout(timeoutId);
+  }, [answerTimeLeft, step, quizType, isInterviewThinking]);
+
+  // 2. Handle timer expiration
+  useEffect(() => {
+    if (step !== 3 || quizType !== 'interview') return;
+    if (answerTimeLeft > 0) return;
+
+    if (isListening) {
+      autoSubmitOnRecognitionEndRef.current = true;
+      recognitionRef.current?.stop?.();
+    } else {
+      void submitInterviewAnswer(interviewAnswerRef.current);
+    }
+  }, [answerTimeLeft, isListening, step, quizType]);
+
+  // 3. Automatically start recognition when teacher finishes speaking
+  useEffect(() => {
+    if (step === 3 && quizType === 'interview' && isAnswerWindowReady && !isListening && !isInterviewThinking) {
+      startSpeechRecognition();
+    }
+  }, [isAnswerWindowReady, step, quizType]);
 
   const resetWizard = () => {
     window.speechSynthesis?.cancel();
@@ -492,6 +515,13 @@ export default function QuizWizard({ selectedModel }: QuizWizardProps) {
                 />
               </div>
 
+              {wizardError && (
+                <div className="mt-4 flex items-center gap-2 text-rose-500 text-sm font-semibold justify-center sm:justify-end">
+                  <XCircle className="w-4 h-4 shrink-0" />
+                  <span>{wizardError}</span>
+                </div>
+              )}
+
               <div className="mt-auto flex justify-stretch pt-8 sm:justify-end">
                 <button onClick={handleGenerateQuiz} disabled={!topic || isGenerating} className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-fuchsia-500 to-violet-600 px-6 py-3.5 font-bold text-white shadow-lg shadow-violet-200 transition-all hover:-translate-y-0.5 hover:shadow-xl active:scale-95 disabled:pointer-events-none disabled:opacity-50 sm:w-auto sm:px-8">
                   {isGenerating ? <><Loader2 className="w-5 h-5 animate-spin" /> Preparing...</> : <><CheckCircle2 className="w-5 h-5" /> {quizType === 'interview' ? 'Start Interview' : 'Start Quiz'}</>}
@@ -555,10 +585,13 @@ export default function QuizWizard({ selectedModel }: QuizWizardProps) {
                 {interviewVoiceError && (
                   <p className="mt-2 text-xs font-semibold text-rose-500">{interviewVoiceError}</p>
                 )}
+                {wizardError && (
+                  <p className="mt-2 text-xs font-semibold text-rose-500">{wizardError}</p>
+                )}
                 <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:justify-center">
                   <button
                     onClick={startSpeechRecognition}
-                    disabled={isListening || isInterviewThinking || !isAnswerWindowReady}
+                    disabled={isListening || isInterviewThinking}
                     className="inline-flex items-center justify-center gap-2 rounded-xl bg-violet-600 px-5 py-3 text-sm font-bold text-white shadow-md transition-all hover:bg-violet-700 active:scale-95 disabled:opacity-50"
                   >
                     {isListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}

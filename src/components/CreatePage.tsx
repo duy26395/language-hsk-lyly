@@ -1,8 +1,10 @@
 import { useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion, type Variants } from 'framer-motion';
 import { Loader2, Wand2, VolumeX, Volume2, Shuffle, BookMarked, Check } from 'lucide-react';
 import InteractiveText from './InteractiveText';
-import { WordExplanation, readAloud, AIModel, generateChineseText } from '../lib/ai';
+import { WordExplanation, AIModel, generateChineseText } from '../lib/ai';
+import { readAloud } from '../lib/voice';
+import { useNotebook } from '../hooks/useNotebook';
 
 interface CreatePageProps {
   createWords: string;
@@ -14,10 +16,8 @@ interface CreatePageProps {
   isGenerating: boolean;
   setIsGenerating: (val: boolean) => void;
   selectedModel: AIModel;
-  onAddToNotebook: (word: string, explanation: WordExplanation) => Promise<boolean>;
-  onSavePassage: (text: string) => Promise<boolean>;
   onOpenReading: (text: string) => void;
-  fadeVariants: any;
+  fadeVariants: Variants;
 }
 
 const STORY_PROMPTS = [
@@ -36,11 +36,10 @@ export default function CreatePage({
   isGenerating,
   setIsGenerating,
   selectedModel,
-  onAddToNotebook,
-  onSavePassage,
   onOpenReading,
   fadeVariants,
 }: CreatePageProps) {
+  const { addWord, savePassage } = useNotebook();
   const handleGenerateText = async () => {
     setIsGenerating(true);
     setCreatedText('');
@@ -169,14 +168,14 @@ export default function CreatePage({
                   Mở trong Reading
                 </button>
                 <div className="col-span-2 flex justify-stretch sm:col-span-1">
-                  <SavePassageButton text={createdText} onSave={onSavePassage} />
+                  <SavePassageButton text={createdText} onSave={savePassage} />
                 </div>
               </div>
             </div>
             <div className={cardClasses}>
               <InteractiveText
                 text={createdText}
-                onAddToNotebook={onAddToNotebook}
+                onAddToNotebook={addWord}
                 selectedModel={selectedModel}
               />
             </div>

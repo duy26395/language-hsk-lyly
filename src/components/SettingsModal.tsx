@@ -38,7 +38,7 @@ const modelGroups: {
     provider: 'GitHub Copilot',
     description: 'Azure Inference',
     models: [
-      { id: 'github-gpt-4o', name: 'Copilot GPT-4o', description: 'Flagship model via GitHub' },
+      { id: 'github-gpt-5-mini', name: 'Copilot GPT-5 Mini', description: 'Next-gen reasoning', },
       { id: 'github-gpt-4o-mini', name: 'Copilot GPT-4o Mini', description: 'Fast and cost-effective' },
     ],
   },

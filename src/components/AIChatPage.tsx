@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
+import type { Variants } from 'framer-motion';
 import {
   Bot,
   Check,
@@ -11,7 +12,8 @@ import {
   Sparkles,
   User,
 } from 'lucide-react';
-import { AIModel, chatNormally, summarizeConversation } from '../lib/ai';
+import { AIModel, chatNormally } from '../lib/ai';
+import { useConversationSummary } from '../hooks/useConversationSummary';
 
 interface Message {
   id: string;
@@ -21,7 +23,7 @@ interface Message {
 
 interface AIChatPageProps {
   selectedModel: AIModel;
-  fadeVariants: any;
+  fadeVariants: Variants;
 }
 
 type MarkdownBlock =
@@ -339,10 +341,9 @@ export default function AIChatPage({ selectedModel, fadeVariants }: AIChatPagePr
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
-  const [conversationSummary, setConversationSummary] = useState('');
+  const { updateSummaryIfNeeded, resetSummary } = useConversationSummary(selectedModel);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const summarizedCountRef = useRef(0);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -368,26 +369,8 @@ export default function AIChatPage({ selectedModel, fadeVariants }: AIChatPagePr
     setLoading(true);
 
     try {
-      let summaryForRequest = conversationSummary;
-      let summarizedCountForRequest = summarizedCountRef.current;
-
-      if (messages.length - summarizedCountForRequest > 12) {
-        const nextSummarizedCount = Math.max(summarizedCountForRequest, messages.length - 10);
-        const messagesToSummarize = messages
-          .slice(summarizedCountForRequest, nextSummarizedCount)
-          .map(({ role, content }) => ({ role, content }));
-        const nextSummary = await summarizeConversation(messagesToSummarize, conversationSummary, selectedModel);
-        if (nextSummary) {
-          summaryForRequest = nextSummary;
-          summarizedCountForRequest = nextSummarizedCount;
-          summarizedCountRef.current = nextSummarizedCount;
-          setConversationSummary(nextSummary);
-        }
-      }
-
-      const history = messages
-        .slice(Math.max(summarizedCountForRequest, messages.length - 12))
-        .map(({ role, content }) => ({ role, content }));
+      const { summaryForRequest, conversationHistory } = await updateSummaryIfNeeded(messages);
+      const history = conversationHistory;
       const response = await chatNormally(userMessage.content, history, selectedModel, summaryForRequest);
       if (response) {
         setMessages([...nextMessages, createMessage('assistant', response)]);
@@ -409,8 +392,7 @@ export default function AIChatPage({ selectedModel, fadeVariants }: AIChatPagePr
     setInput('');
     setError('');
     setCopiedMessageId(null);
-    setConversationSummary('');
-    summarizedCountRef.current = 0;
+    resetSummary();
   };
 
   const copyMessage = async (message: Message) => {

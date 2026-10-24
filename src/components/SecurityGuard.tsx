@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ShieldCheck, Lock, ChevronRight, AlertCircle, Heart, Sparkles, Star, Cloud, Moon, Sun } from 'lucide-react';
+import { ShieldCheck, Lock, AlertCircle, Heart } from 'lucide-react';
 
 interface SecurityGuardProps {
   children: React.ReactNode;
@@ -74,7 +74,7 @@ export default function SecurityGuard({ children }: SecurityGuardProps) {
   const [timeLeft, setTimeLeft] = useState(0);
 
   const pickNewQuestion = (excludeId?: number) => {
-    const available = excludeId 
+    const available = excludeId
       ? SECURITY_QUESTIONS.filter(q => q.id !== excludeId)
       : SECURITY_QUESTIONS;
     const randomIdx = Math.floor(Math.random() * available.length);
@@ -88,7 +88,7 @@ export default function SecurityGuard({ children }: SecurityGuardProps) {
     const expiry = localStorage.getItem('app_unlocked_expiry');
     const lockedUntil = localStorage.getItem('app_lock_until');
     const savedFails = localStorage.getItem('app_fail_count');
-    
+
     if (savedFails) setFailCount(parseInt(savedFails));
 
     if (lockedUntil && Date.now() < parseInt(lockedUntil)) {
@@ -121,7 +121,7 @@ export default function SecurityGuard({ children }: SecurityGuardProps) {
   const handleOptionClick = (option: string) => {
     if (lockUntil) return;
     setSelectedOption(option);
-    
+
     if (option === currentQuestion.correctAnswer) {
       setTimeout(() => {
         setIsUnlocked(true);
@@ -139,19 +139,16 @@ export default function SecurityGuard({ children }: SecurityGuardProps) {
       setTimeout(() => setShake(false), 500);
 
       if (newFailCount === 1) {
-        // First fail: change question
         setTimeout(() => {
           setError(false);
           setSelectedOption(null);
           pickNewQuestion(currentQuestion.id);
         }, 1500);
       } else {
-        // Second fail or more: lockout with backoff
-        // Backoff: 30s, 60s, 120s... (Math.pow(2, failCount - 2) * 30)
         const backoffMultiplier = Math.min(Math.pow(2, Math.min(newFailCount - 2, 3)), 8);
         const duration = 30 * backoffMultiplier;
         const until = Date.now() + duration * 1000;
-        
+
         setTimeout(() => {
           setLockUntil(until);
           localStorage.setItem('app_lock_until', until.toString());
@@ -163,139 +160,47 @@ export default function SecurityGuard({ children }: SecurityGuardProps) {
   };
 
   if (isUnlocked === null) return null;
-
-  if (isUnlocked) {
-    return <>{children}</>;
-  }
+  if (isUnlocked) return <>{children}</>;
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-transparent font-sans overflow-hidden">
 
-      {/* Dynamic Animated Background */}
-      <div className="absolute inset-0 overflow-hidden">
-        {/* Main Gradient Blobs */}
-        <motion.div
-          animate={{
-            scale: [1, 1.2, 1],
-            rotate: [0, 90, 0],
-            x: [0, 100, 0],
-            y: [0, 50, 0],
-          }}
-          transition={{
-            duration: 20,
-            repeat: Infinity,
-            ease: "easeInOut"
-          }}
-          className="absolute -top-[10%] -left-[10%] h-[60%] w-[60%] rounded-full bg-gradient-to-br from-violet-300/40 to-fuchsia-300/40 blur-[100px]"
+      {/*
+        PERF: Replaced 4 motion.div gradient blobs (with scale/rotate/x/y
+        animations at blur-[100px]) with static CSS divs.  The old approach
+        forced the GPU to re-composite every frame at full-screen scale.
+        Replaced floating icons (6 simultaneous multi-property Framer Motion
+        timelines) with none — the lock screen is shown only briefly.
+        Removed noise.svg mix-blend-overlay (software compositor path).
+      */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="app-orb absolute -top-[10%] -left-[10%] h-[60%] w-[60%] rounded-full bg-gradient-to-br from-violet-300/40 to-fuchsia-300/40 blur-[70px]" />
+        <div className="app-orb app-orb--delay-8 absolute -bottom-[10%] -right-[10%] h-[65%] w-[65%] rounded-full bg-gradient-to-tr from-rose-300/35 to-orange-300/35 blur-[70px]" />
+        <div className="app-orb app-orb--delay-4 absolute top-[18%] right-[8%] h-[38%] w-[38%] rounded-full bg-gradient-to-bl from-blue-200/35 to-cyan-200/35 blur-[60px]" />
+        <div className="app-orb app-orb--delay-12 absolute bottom-[18%] left-[12%] h-[36%] w-[36%] rounded-full bg-gradient-to-tr from-emerald-200/30 to-teal-200/30 blur-[60px]" />
+        {/* Dot grid – pure CSS, zero JS */}
+        <div
+          className="absolute inset-0 opacity-[0.025]"
+          style={{ backgroundImage: 'radial-gradient(#4f46e5 1px, transparent 1px)', backgroundSize: '32px 32px' }}
         />
-        <motion.div
-          animate={{
-            scale: [1, 1.3, 1],
-            rotate: [0, -45, 0],
-            x: [0, -80, 0],
-            y: [0, 120, 0],
-          }}
-          transition={{
-            duration: 25,
-            repeat: Infinity,
-            ease: "easeInOut"
-          }}
-          className="absolute -bottom-[10%] -right-[10%] h-[70%] w-[70%] rounded-full bg-gradient-to-tr from-rose-300/40 to-orange-300/40 blur-[100px]"
-        />
-        <motion.div
-          animate={{
-            scale: [1, 1.1, 1],
-            x: [0, 80, 0],
-            y: [0, -80, 0],
-          }}
-          transition={{
-            duration: 18,
-            repeat: Infinity,
-            ease: "easeInOut"
-          }}
-          className="absolute top-[20%] right-[10%] h-[40%] w-[40%] rounded-full bg-gradient-to-bl from-blue-200/40 to-cyan-200/40 blur-[80px]"
-        />
-        <motion.div
-          animate={{
-            scale: [1, 1.25, 1],
-            x: [0, -40, 0],
-            y: [0, -60, 0],
-          }}
-          transition={{
-            duration: 22,
-            repeat: Infinity,
-            ease: "easeInOut",
-            delay: 2
-          }}
-          className="absolute bottom-[20%] left-[15%] h-[40%] w-[40%] rounded-full bg-gradient-to-tr from-emerald-200/30 to-teal-200/30 blur-[90px]"
-        />
-
-
-        {/* Floating Icons */}
-        {[...Array(6)].map((_, i) => {
-          const colors = ['text-violet-400', 'text-fuchsia-400', 'text-emerald-400', 'text-rose-400', 'text-sky-400', 'text-amber-400'];
-          const colorClass = colors[i % colors.length];
-          return (
-            <motion.div
-              key={`icon-${i}`}
-              initial={{ 
-                x: Math.random() * 100 + "%", 
-                y: Math.random() * 100 + "%",
-                opacity: 0,
-                scale: 0.5 + Math.random() * 0.5
-              }}
-              animate={{
-                y: [null, (Math.random() - 0.5) * 200],
-                x: [null, (Math.random() - 0.5) * 200],
-                rotate: [0, 180, -180],
-                opacity: [0, 0.15 + Math.random() * 0.1, 0],
-                scale: [null, 1 + Math.random() * 0.5, 0.5]
-              }}
-              transition={{
-                duration: 15 + Math.random() * 20,
-                repeat: Infinity,
-                ease: "easeInOut",
-                delay: Math.random() * 10
-              }}
-              className={`absolute ${colorClass} pointer-events-none`}
-            >
-              {i % 4 === 0 && <Sparkles size={16 + Math.random() * 16} />}
-              {i % 4 === 1 && <Heart size={14 + Math.random() * 14} />}
-              {i % 4 === 2 && <Star size={16 + Math.random() * 16} />}
-              {i % 4 === 3 && <Cloud size={20 + Math.random() * 20} />}
-            </motion.div>
-          )
-        })}
-        
-        {/* Subtle Grid & Noise Pattern */}
-        <div className="absolute inset-0 opacity-[0.03]" 
-             style={{ backgroundImage: 'radial-gradient(#4f46e5 1px, transparent 1px)', backgroundSize: '32px 32px' }} />
-        <div className="absolute inset-0 opacity-[0.02] mix-blend-overlay contrast-150 brightness-100"
-             style={{ backgroundImage: 'url("https://grainy-gradients.vercel.app/noise.svg")' }} />
-
-
       </div>
 
       <div className="absolute inset-0 bg-white/10 backdrop-blur-[1px]" />
 
-      
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         className="relative w-full max-w-md px-6"
       >
         <div className="mb-8 text-center">
-          <motion.div 
+          {/* Lock icon: spring-in once, then gentle float via CSS (no Framer repeat) */}
+          <motion.div
             initial={{ scale: 0 }}
-            animate={{ 
-              scale: 1,
-              y: [0, -8, 0],
-            }}
-            transition={{ 
-              scale: { type: 'spring', damping: 12, stiffness: 200, delay: 0.2 },
-              y: { duration: 4, repeat: Infinity, ease: "easeInOut" }
-            }}
-            className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-[2.5rem] bg-gradient-to-br from-violet-600 to-indigo-600 shadow-xl shadow-violet-200"
+            animate={{ scale: 1 }}
+            transition={{ type: 'spring', damping: 12, stiffness: 200, delay: 0.2 }}
+            className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-[2.5rem]
+                       bg-gradient-to-br from-violet-600 to-indigo-600 shadow-xl shadow-violet-200
+                       animate-bounce-slow"
           >
             <Lock className="h-10 w-10 text-white" />
           </motion.div>
@@ -307,15 +212,16 @@ export default function SecurityGuard({ children }: SecurityGuardProps) {
           </p>
         </div>
 
-        <motion.div 
+        <motion.div
           animate={shake ? { x: [-10, 10, -10, 10, 0] } : {}}
           transition={{ duration: 0.4 }}
-          className="group relative overflow-hidden rounded-[2.5rem] border border-white/80 bg-white/40 p-8 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.1)] backdrop-blur-3xl transition-all hover:shadow-[0_48px_80px_-20px_rgba(0,0,0,0.15)] hover:bg-white/50"
+          className="group relative overflow-hidden rounded-[2.5rem] border border-white/80 bg-white/60 p-8
+                     shadow-[0_32px_64px_-16px_rgba(0,0,0,0.1)] backdrop-blur-md
+                     transition-all hover:shadow-[0_48px_80px_-20px_rgba(0,0,0,0.15)] hover:bg-white/70"
         >
-          {/* Animated Border */}
+          {/* Hover border accent */}
           <div className="absolute inset-0 rounded-[2.5rem] bg-gradient-to-br from-violet-500/20 to-rose-500/20 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
 
-          
           <div className="mb-6 flex items-center gap-3 text-violet-600">
             <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-violet-100">
               <ShieldCheck className="h-4 w-4" />
@@ -334,7 +240,7 @@ export default function SecurityGuard({ children }: SecurityGuardProps) {
                   {timeLeft}s
                 </div>
                 <p className="text-sm font-medium text-slate-500">
-                  Bạn đã nhập sai quá nhiều lần. <br/>Vui lòng đợi để thử lại.
+                  Bạn đã nhập sai quá nhiều lần. <br />Vui lòng đợi để thử lại.
                 </p>
               </div>
             ) : (
@@ -360,7 +266,7 @@ export default function SecurityGuard({ children }: SecurityGuardProps) {
 
             <AnimatePresence mode="wait">
               {error && (
-                <motion.div 
+                <motion.div
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: 'auto' }}
                   exit={{ opacity: 0, height: 0 }}
@@ -375,13 +281,9 @@ export default function SecurityGuard({ children }: SecurityGuardProps) {
         </motion.div>
 
         <div className="mt-8 flex items-center justify-center gap-3 text-slate-400">
-          <motion.div
-            animate={{ scale: [1, 1.3, 1] }}
-            transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
-          >
-            <Heart className="h-4 w-4 text-rose-400 fill-rose-400" />
-          </motion.div>
-          <span className="text-[10px] font-bold uppercase tracking-[0.2em] opacity-60">Designed for Thảo & Duy</span>
+          {/* Heartbeat via CSS animation instead of Framer repeat */}
+          <Heart className="h-4 w-4 text-rose-400 fill-rose-400 animate-pulse" />
+          <span className="text-[10px] font-bold uppercase tracking-[0.2em] opacity-60">Designed for Thảo &amp; Duy</span>
         </div>
       </motion.div>
     </div>

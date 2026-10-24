@@ -37,6 +37,11 @@ export async function speakToTeacher(
   ttsVoice: string = 'zh-CN-XiaoxiaoNeural',
   summary = '',
 ): Promise<SpeakResult | null> {
+  // The full STT → LLM → TTS pipeline can take up to ~45 seconds.
+  // Without a timeout, a stalled server causes the client to wait forever.
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), 45_000);
+
   try {
     const arrayBuffer = await audioBlob.arrayBuffer();
     const base64 = btoa(
@@ -46,6 +51,7 @@ export async function speakToTeacher(
     const response = await fetch('/api/speak', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      signal: controller.signal,
       body: JSON.stringify({
         audio: base64,
         history,
@@ -64,8 +70,14 @@ export async function speakToTeacher(
 
     return await response.json();
   } catch (error) {
-    console.error('Speak API error:', error);
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      console.error('Speak API timed out after 45s');
+    } else {
+      console.error('Speak API error:', error);
+    }
     return null;
+  } finally {
+    window.clearTimeout(timeoutId);
   }
 }
 
@@ -237,4 +249,17 @@ function getAudioFileName(mimeType: string): string {
   if (mimeType.includes('mp4') || mimeType.includes('m4a')) return 'audio.m4a';
   if (mimeType.includes('wav')) return 'audio.wav';
   return 'audio.webm';
+}
+
+/**
+ * Use the browser's built-in speech synthesis to read Chinese text aloud.
+ * Lightweight fallback when TTS API is unavailable.
+ */
+export function readAloud(text: string): void {
+  if (!window.speechSynthesis) return;
+  window.speechSynthesis.cancel();
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.lang = 'zh-CN';
+  utterance.rate = 0.9;
+  window.speechSynthesis.speak(utterance);
 }

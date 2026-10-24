@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Volume2, Lightbulb, Plus, Loader2 } from 'lucide-react';
-import { WordExplanation, readAloud } from '../lib/ai';
+import { WordExplanation } from '../lib/ai';
+import { readAloud } from '../lib/voice';
 
 interface WordModalProps {
   explanation: WordExplanation | null;

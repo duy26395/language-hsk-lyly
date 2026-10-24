@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
+import type { Variants } from 'framer-motion';
 import { Languages, Loader2, Mic, MicOff, RotateCcw, User, Bot, Volume2 } from 'lucide-react';
 import { io, Socket } from 'socket.io-client';
-import { AIModel, summarizeConversation, translateToVietnamese } from '../lib/ai';
-import { AudioPlayer, AudioRecorder, speakToTeacher, textToSpeech, type TeacherFeedback } from '../lib/voice';
+import { AIModel, translateToVietnamese } from '../lib/ai';
+import { AudioPlayer, AudioRecorder, speakToTeacher, textToSpeech, readAloud, type TeacherFeedback } from '../lib/voice';
+import { useConversationSummary } from '../hooks/useConversationSummary';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -13,7 +15,7 @@ interface Message {
 
 interface SpeakingPageProps {
   selectedModel: AIModel;
-  fadeVariants: any;
+  fadeVariants: Variants;
 }
 
 type PipelineStatus = 'idle' | 'recording' | 'recognizing' | 'thinking' | 'speaking';
@@ -41,7 +43,7 @@ export default function SpeakingPage({ selectedModel, fadeVariants }: SpeakingPa
   const [translations, setTranslations] = useState<Record<string, string>>({});
   const [translatingKey, setTranslatingKey] = useState<string | null>(null);
   const [readingKey, setReadingKey] = useState<string | null>(null);
-  const [conversationSummary, setConversationSummary] = useState('');
+  const { updateSummaryIfNeeded, resetSummary } = useConversationSummary(selectedModel);
 
   const recorderRef = useRef<AudioRecorder | null>(null);
   const socketRef = useRef<Socket | null>(null);
@@ -52,7 +54,6 @@ export default function SpeakingPage({ selectedModel, fadeVariants }: SpeakingPa
   const isPressingRef = useRef(false);
   const isDisposedRef = useRef(false);
   const realtimeEnabledRef = useRef(canUseRealtimeVoice());
-  const summarizedCountRef = useRef(0);
 
   const stopAllAudio = () => {
     audioQueueRef.current = [];
@@ -229,26 +230,7 @@ export default function SpeakingPage({ selectedModel, fadeVariants }: SpeakingPa
     stopAllAudio();
 
     try {
-      let summaryForRequest = conversationSummary;
-      let summarizedCountForRequest = summarizedCountRef.current;
-
-      if (messages.length - summarizedCountForRequest > 12) {
-        const nextSummarizedCount = Math.max(summarizedCountForRequest, messages.length - 10);
-        const messagesToSummarize = messages
-          .slice(summarizedCountForRequest, nextSummarizedCount)
-          .map(({ role, content }) => ({ role, content }));
-        const nextSummary = await summarizeConversation(messagesToSummarize, conversationSummary, selectedModel);
-        if (nextSummary) {
-          summaryForRequest = nextSummary;
-          summarizedCountForRequest = nextSummarizedCount;
-          summarizedCountRef.current = nextSummarizedCount;
-          setConversationSummary(nextSummary);
-        }
-      }
-
-      const conversationHistory = messages
-        .slice(Math.max(summarizedCountForRequest, messages.length - 12))
-        .map(({ role, content }) => ({ role, content }));
+      const { summaryForRequest, conversationHistory } = await updateSummaryIfNeeded(messages);
 
       if (realtimeEnabledRef.current && socketRef.current?.connected) {
         const arrayBuffer = await audioBlob.arrayBuffer();
@@ -309,12 +291,8 @@ export default function SpeakingPage({ selectedModel, fadeVariants }: SpeakingPa
         stopAllAudio();
         await audioPlayerRef.current.playBase64(ttsResult.audio, ttsResult.mimeType);
       } else {
-        if (!window.speechSynthesis) return;
-        window.speechSynthesis.cancel();
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.lang = 'zh-CN';
-        utterance.rate = 0.9;
-        window.speechSynthesis.speak(utterance);
+        // Fallback to browser TTS via the shared readAloud utility.
+        readAloud(text);
       }
     } catch (e) {
       console.error(e);
@@ -357,8 +335,7 @@ export default function SpeakingPage({ selectedModel, fadeVariants }: SpeakingPa
     setTranslations({});
     setVoiceError('');
     setPipelineStatus('idle');
-    setConversationSummary('');
-    summarizedCountRef.current = 0;
+    resetSummary();
   };
 
   const statusText = isRecording

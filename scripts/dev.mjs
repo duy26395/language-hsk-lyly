@@ -7,7 +7,7 @@ const processes = [
     stdio: 'inherit',
     shell: isWindows,
   }),
-  spawn('npx', ['vite', '--port=3000', '--host=0.0.0.0'], {
+  spawn('npx', ['vite', '--port=4000', '--host=0.0.0.0'], {
     stdio: 'inherit',
     shell: isWindows,
   }),

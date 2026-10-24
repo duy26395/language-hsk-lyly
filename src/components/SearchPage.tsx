@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, motion, type Variants } from 'framer-motion';
 import {
   BookOpen,
   ClipboardCheck,
@@ -17,11 +17,11 @@ import {
   Volume2,
 } from 'lucide-react';
 import { AIModel, WordExplanation, explainWord } from '../lib/ai';
+import { useNotebook } from '../hooks/useNotebook';
 
 interface SearchPageProps {
   selectedModel: AIModel;
-  onAddToNotebook: (word: string, explanation: WordExplanation) => Promise<boolean>;
-  fadeVariants: any;
+  fadeVariants: Variants;
 }
 
 const SAMPLE_WORDS = ['把', '已经', '虽然', '方便', '影响', '越来越'];
@@ -139,9 +139,9 @@ function SectionTitle({
 
 export default function SearchPage({
   selectedModel,
-  onAddToNotebook,
   fadeVariants,
 }: SearchPageProps) {
+  const { addWord } = useNotebook();
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [savingWord, setSavingWord] = useState(false);
@@ -534,7 +534,7 @@ export default function SearchPage({
                 type="button"
                 onClick={async () => {
                   setSavingWord(true);
-                  await onAddToNotebook(explanation.word, explanation);
+                  await addWord(explanation.word, explanation);
                   setSavingWord(false);
                 }}
                 disabled={savingWord}

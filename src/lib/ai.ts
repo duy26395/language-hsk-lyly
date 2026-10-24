@@ -1,100 +1,28 @@
-export type AIModel = 'gemini' | 'gpt-4o' | 'gpt-3.5-turbo' | 'llama-3.1-8b-instant' | 'llama-3.3-70b-versatile' | 'qwen/qwen3-32b' | 'meta-llama/llama-4-scout-17b-16e-instruct' | 'openai/gpt-oss-120b' | 'github-gpt-4o' | 'github-gpt-4o-mini';
-
-export interface WordExplanation {
-  word: string;
-  pinyin: string;
-  meaning: string;
-  meanings?: string[];
-  pronunciations?: string[];
-  hskLevel: string;
-  radical?: string;
-  strokes?: string;
-  decomposition?: string[];
-  grammarFocus?: string[];
-  commonPatterns?: {
-    pattern: string;
-    meaning: string;
-    example: string;
-    examplePinyin?: string;
-    exampleMeaning: string;
-  }[];
-  commonMistakes?: string[];
-  learningTip: string;
-  usage?: string;
-  usageExamples?: string[];
-  videoLinks?: { title: string; url: string }[];
-  example: string;
-  examplePinyin?: string;
-  exampleMeaning: string;
-  synonyms?: string;
-  antonyms?: string;
-}
-
-export interface QuizQuestion {
-  question: string;
-  options: string[];
-  correctAnswerIndex: number;
-  dialogue?: string;
-}
-
-export type QuizType = 'general' | 'listening' | 'interview';
-
-export interface InterviewTurn {
-  question: string;
-  answer: string;
-  speechConfidence?: number;
-}
-
-export interface InterviewEvaluation {
-  overallScore: number;
-  estimatedHskLevel: string;
-  grammarScore: number;
-  pronunciationScore: number;
-  fluencyScore: number;
-  strengths: string[];
-  improvements: string[];
-  grammarFeedback: string;
-  pronunciationFeedback: string;
-  nextPractice: string[];
-}
-
-const WORD_CACHE_TTL_MS = 12 * 60 * 60 * 1000;
-const WORD_CACHE_VERSION = 'pronunciations-v2';
-const wordCache = new Map<string, { result: WordExplanation | null; expiresAt: number }>();
-const pendingWordRequests = new Map<string, Promise<WordExplanation | null>>();
-
-const createWordCacheKey = (word: string, contextContext: string, model: AIModel, race = false) => {
-  const mode = race ? 'race' : 'single';
-  return `${WORD_CACHE_VERSION}::${mode}::${model}::${word.trim().toLowerCase()}::${contextContext.trim().slice(0, 160).toLowerCase()}`;
-};
-
-const getCachedWord = (cacheKey: string) => {
-  const memoryEntry = wordCache.get(cacheKey);
-  if (memoryEntry && memoryEntry.expiresAt > Date.now()) return memoryEntry.result;
-  if (memoryEntry) wordCache.delete(cacheKey);
-
-  try {
-    const raw = sessionStorage.getItem(`word-cache:${cacheKey}`);
-    if (!raw) return undefined;
-    const parsed = JSON.parse(raw) as { result: WordExplanation | null; expiresAt: number };
-    if (parsed.expiresAt <= Date.now()) {
-      sessionStorage.removeItem(`word-cache:${cacheKey}`);
-      return undefined;
-    }
-    wordCache.set(cacheKey, parsed);
-    return parsed.result;
-  } catch {
-    return undefined;
-  }
-};
-
-const setCachedWord = (cacheKey: string, result: WordExplanation | null) => {
-  const entry = { result, expiresAt: Date.now() + WORD_CACHE_TTL_MS };
-  wordCache.set(cacheKey, entry);
-  try {
-    sessionStorage.setItem(`word-cache:${cacheKey}`, JSON.stringify(entry));
-  } catch {}
-};
+// Re-export all shared types from the canonical source of truth
+export type {
+  AIModel,
+  WordExplanation,
+  QuizQuestion,
+  QuizType,
+  InterviewTurn,
+  InterviewEvaluation,
+} from '../types';
+import type {
+  AIModel,
+  WordExplanation,
+  QuizQuestion,
+  QuizType,
+  InterviewTurn,
+  InterviewEvaluation,
+} from '../types';
+import {
+  createWordCacheKey,
+  getCachedWord,
+  setCachedWord,
+  getPendingWordRequest,
+  setPendingWordRequest,
+  deletePendingWordRequest,
+} from './word-cache';
 
 const compactHistory = (
   history: { role: 'user' | 'assistant'; content: string }[],
@@ -144,32 +72,26 @@ export async function explainWord(
   const cached = getCachedWord(cacheKey);
   if (cached !== undefined) return cached;
 
-  const pending = pendingWordRequests.get(cacheKey);
+  const pending = getPendingWordRequest(cacheKey);
   if (pending) return pending;
 
   const request = (async () => {
-  try {
-    const { result } = await postJson<{ result: WordExplanation | null }>(
-      '/api/explain-word',
-      {
-        word,
-        context: contextContext,
-        model,
-        race,
-      },
-    );
-
-    setCachedWord(cacheKey, result);
-    return result;
-  } catch (error) {
-    console.error('Explain word API error:', error);
-    return null;
-  } finally {
-    pendingWordRequests.delete(cacheKey);
-  }
+    try {
+      const { result } = await postJson<{ result: WordExplanation | null }>(
+        '/api/explain-word',
+        { word, context: contextContext, model, race },
+      );
+      setCachedWord(cacheKey, result);
+      return result;
+    } catch (error) {
+      console.error('Explain word API error:', error);
+      return null;
+    } finally {
+      deletePendingWordRequest(cacheKey);
+    }
   })();
 
-  pendingWordRequests.set(cacheKey, request);
+  setPendingWordRequest(cacheKey, request);
   return request;
 }
 
@@ -381,11 +303,3 @@ function normalizeChatResult(result: unknown): string | null {
   return String(result);
 }
 
-export function readAloud(text: string) {
-  if (!window.speechSynthesis) return;
-  window.speechSynthesis.cancel();
-  const utterance = new SpeechSynthesisUtterance(text);
-  utterance.lang = 'zh-CN';
-  utterance.rate = 0.9;
-  window.speechSynthesis.speak(utterance);
-}

@@ -27,8 +27,6 @@
     overflow-x: hidden;
   }
 
-
-
   #root {
     min-height: 100dvh;
     width: 100%;
@@ -56,32 +54,44 @@
     background: #fbfaff;
   }
 
+  /* PERF: Removed animated background-pulse on .app-background::before.
+     The old animation used filter:blur(80px) + transform on every frame,
+     which forced a full repaint. Kept as static gradients instead. */
   .app-background::before {
     content: "";
     position: absolute;
     inset: -20%;
-    background: 
+    background:
       radial-gradient(circle at 20% 30%, hsla(262, 83%, 58%, 0.15) 0%, transparent 40%),
       radial-gradient(circle at 80% 20%, hsla(162, 84%, 58%, 0.12) 0%, transparent 40%),
       radial-gradient(circle at 50% 80%, hsla(339, 90%, 65%, 0.12) 0%, transparent 40%),
       radial-gradient(circle at 10% 90%, hsla(35, 92%, 58%, 0.1) 0%, transparent 40%);
     filter: blur(80px);
-    animation: background-pulse 20s ease-in-out infinite alternate;
   }
 
-  @keyframes background-pulse {
-    0% { transform: scale(1) translate(0, 0); }
-    100% { transform: scale(1.1) translate(-2%, -2%); }
-  }
-
+  /* PERF: Reduced blur 40px→12px and saturate 200%→140%.
+     backdrop-filter on top of animated backgrounds forced the GPU to
+     recompute the blur every frame. At 12px the glass effect is
+     preserved while render cost drops dramatically. */
   .glass {
-    background: rgba(255, 255, 255, 0.7);
-    backdrop-filter: blur(40px) saturate(200%);
-    -webkit-backdrop-filter: blur(40px) saturate(200%);
-    border: 1px solid rgba(255, 255, 255, 0.8);
+    background: rgba(255, 255, 255, 0.72);
+    backdrop-filter: blur(12px) saturate(140%);
+    -webkit-backdrop-filter: blur(12px) saturate(140%);
+    border: 1px solid rgba(255, 255, 255, 0.75);
     box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.05);
   }
 
+  /* Lightweight orb pulse — only animates opacity (compositor-only, no repaint).
+     Used by AppBackground.tsx orb divs. */
+  @keyframes orb-pulse {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0.65; }
+  }
+
+  .app-orb           { animation: orb-pulse 20s ease-in-out infinite; }
+  .app-orb--delay-4  { animation-delay: -4s; }
+  .app-orb--delay-8  { animation-delay: -8s; }
+  .app-orb--delay-12 { animation-delay: -12s; }
 
   .floral-corner {
     background:

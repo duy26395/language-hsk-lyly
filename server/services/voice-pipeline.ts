@@ -1,9 +1,9 @@
-import OpenAI from 'openai';
 import Groq from 'groq-sdk';
+import { getGroq, GROQ_PRIORITY_LIST, cleanThinkingTags } from './ai/providers';
 import { synthesizeChineseSpeech } from './tts-provider';
 
+// Native Groq SDK — kept for Whisper STT (audio transcription API not in OpenAI compat layer)
 let groqClient: Groq | null = null;
-let groqOpenAI: OpenAI | null = null;
 
 function getGroqClient(): Groq {
   if (!groqClient) {
@@ -12,18 +12,6 @@ function getGroqClient(): Groq {
     groqClient = new Groq({ apiKey });
   }
   return groqClient;
-}
-
-function getGroqOpenAI(): OpenAI {
-  if (!groqOpenAI) {
-    const apiKey = process.env.GROQ_API_KEY;
-    if (!apiKey) throw new Error('GROQ_API_KEY is not configured.');
-    groqOpenAI = new OpenAI({
-      apiKey,
-      baseURL: 'https://api.groq.com/openai/v1',
-    });
-  }
-  return groqOpenAI;
 }
 
 const WHISPER_MODEL = 'whisper-large-v3-turbo';
@@ -51,12 +39,8 @@ export async function transcribeAudio(
   return typeof result === 'string' ? result.trim() : result?.text?.trim() || '';
 }
 
-const LLM_MODELS = [
-  'qwen/qwen3-32b',
-  'llama-3.3-70b-versatile',
-  'meta-llama/llama-4-scout-17b-16e-instruct',
-  'llama-3.1-8b-instant',
-] as const;
+// LLM fallback list for voice pipeline — mirrors GROQ_PRIORITY_LIST from providers
+const LLM_MODELS = GROQ_PRIORITY_LIST.slice(0, 4) as readonly string[];
 const MAX_STREAM_TTS_CHUNKS = 2;
 
 interface ChatMessage {
@@ -126,7 +110,7 @@ Return only the final teacher reply in Chinese.`;
     { role: 'user', content: userMessage },
   ];
 
-  const client = getGroqOpenAI();
+  const client = getGroq();
   let lastError: any = null;
 
   for (const model of LLM_MODELS) {
@@ -139,7 +123,7 @@ Return only the final teacher reply in Chinese.`;
 
       const content = response.choices[0]?.message?.content;
       if (content) {
-        return stripThinkBlocks(content).trim();
+        return cleanThinkingTags(content).trim();
       }
     } catch (e: any) {
       lastError = e;
@@ -179,7 +163,7 @@ Keep the coaching practical and friendly. Do not over-correct.`;
     { role: 'user', content: userMessage },
   ];
 
-  const client = getGroqOpenAI();
+  const client = getGroq();
   let lastError: any = null;
 
   for (const model of LLM_MODELS) {
@@ -254,7 +238,7 @@ Return only the final teacher reply in Chinese.`;
     { role: 'user', content: userText },
   ];
 
-  const client = getGroqOpenAI();
+  const client = getGroq();
   let fullResponse = '';
   let sentenceBuffer = '';
   let audioSequence = 0;
@@ -376,15 +360,8 @@ function getMimeType(fileName: string): string {
   };
   return mimeMap[ext || ''] || 'audio/webm';
 }
-
-function stripThinkBlocks(text: string): string {
-  return text
-    .replace(/<think>[\s\S]*?<\/think>/gi, '')
-    .replace(/<think>[\s\S]*$/gi, '');
-}
-
 function parseTeacherFeedback(content: string): TeacherFeedback | null {
-  const cleaned = stripThinkBlocks(content)
+  const cleaned = cleanThinkingTags(content)
     .replace(/```(?:json)?/gi, '')
     .replace(/```/g, '')
     .trim();

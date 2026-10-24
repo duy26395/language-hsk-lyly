@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion, type Variants } from 'framer-motion';
 import {
   BookOpen,
   Sparkles,
@@ -11,7 +11,9 @@ import {
   Loader2,
 } from 'lucide-react';
 import InteractiveText from './InteractiveText';
-import { WordExplanation, readAloud, AIModel } from '../lib/ai';
+import { WordExplanation, AIModel } from '../lib/ai';
+import { readAloud } from '../lib/voice';
+import { useNotebook } from '../hooks/useNotebook';
 
 interface ReadPageProps {
   readInput: string;
@@ -19,9 +21,7 @@ interface ReadPageProps {
   readText: string;
   setReadText: (val: string) => void;
   selectedModel: AIModel;
-  onAddToNotebook: (word: string, explanation: WordExplanation) => Promise<boolean>;
-  onSavePassage: (text: string) => Promise<boolean>;
-  fadeVariants: any;
+  fadeVariants: Variants;
 }
 
 const QUICK_READS = [
@@ -36,10 +36,9 @@ export default function ReadPage({
   readText,
   setReadText,
   selectedModel,
-  onAddToNotebook,
-  onSavePassage,
   fadeVariants,
 }: ReadPageProps) {
+  const { addWord, savePassage } = useNotebook();
   const btnPrimary =
     'flex min-w-0 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-fuchsia-500 via-violet-500 to-indigo-500 px-6 py-3.5 text-sm font-semibold text-white shadow-lg shadow-violet-200/70 transition-all duration-300 hover:from-fuchsia-500 hover:via-violet-600 hover:to-indigo-600 hover:shadow-xl hover:shadow-violet-200 active:scale-[0.97] disabled:opacity-60 disabled:shadow-none disabled:active:scale-100';
   const btnSecondary =
@@ -126,7 +125,7 @@ export default function ReadPage({
               <Volume2 className="h-4 w-4 text-violet-600" /> Listen All
 
             </button>
-            <SavePassageButton text={readText} onSave={onSavePassage} />
+            <SavePassageButton text={readText} onSave={savePassage} />
             </div>
           </div>
           <div className={`${cardClasses} flex-1`}>
@@ -136,7 +135,7 @@ export default function ReadPage({
             </div>
             <InteractiveText
               text={readText}
-              onAddToNotebook={onAddToNotebook}
+              onAddToNotebook={addWord}
               selectedModel={selectedModel}
             />
           </div>

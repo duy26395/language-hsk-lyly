@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+import React, { useState, useMemo } from 'react';
+import { AnimatePresence, motion, type Variants } from 'framer-motion';
 import {
   BookOpen,
   Check,
@@ -17,31 +17,13 @@ import {
   Trash2,
   Type,
 } from 'lucide-react';
-import { SavedNoteEntry, SavedPassageEntry, SavedWordEntry } from './StudyDeck';
+import { useNotebook } from '../hooks/useNotebook';
+import { SavedNoteEntry, SavedPassageEntry, SavedWordEntry } from '../types';
 
 interface NotebookPageProps {
-  noteContent: string;
-  setNoteContent: (val: string) => void;
-  savedNotes: SavedNoteEntry[];
-  handleRemoveSavedNote: (id: string) => Promise<boolean>;
-  savedWords: SavedWordEntry[];
-  handleRemoveWord: (word: string) => Promise<boolean>;
-  savedPassages: SavedPassageEntry[];
-  handleRemovePassage: (id: string) => Promise<boolean>;
   onOpenPassage: (text: string) => void;
-  isSyncing: boolean;
-  isSavingNote: boolean;
-  notebookToast: { type: 'success' | 'error'; title: string; message: string } | null;
-  lastSynced: number | null;
-  saveToServer: (
-    words: SavedWordEntry[],
-    passages?: SavedPassageEntry[],
-    notes?: SavedNoteEntry[],
-    options?: { showToast?: boolean; successMessage?: string; errorMessage?: string },
-  ) => Promise<boolean>;
-  onSaveNotes: () => void;
   handlePrint: () => void;
-  fadeVariants: any;
+  fadeVariants: Variants;
 }
 
 type NotebookFilter = 'all' | 'words' | 'passages' | 'notes';
@@ -100,24 +82,27 @@ function getNoteSearchText(item: SavedNoteEntry) {
 }
 
 export default function NotebookPage({
-  noteContent,
-  setNoteContent,
-  savedNotes,
-  handleRemoveSavedNote,
-  savedWords,
-  handleRemoveWord,
-  savedPassages,
-  handleRemovePassage,
   onOpenPassage,
-  isSyncing,
-  isSavingNote,
-  notebookToast,
-  lastSynced,
-  saveToServer,
-  onSaveNotes,
   handlePrint,
   fadeVariants,
 }: NotebookPageProps) {
+  const {
+    noteContent,
+    setNoteContent,
+    savedNotes,
+    removeNote: handleRemoveSavedNote,
+    savedWords,
+    removeWord: handleRemoveWord,
+    savedPassages,
+    removePassage: handleRemovePassage,
+    isSyncing,
+    isSavingNote,
+    notebookToast,
+    lastSynced,
+    saveToServer,
+    saveNotes: onSaveNotes,
+  } = useNotebook();
+
   const [activeFilter, setActiveFilter] = useState<NotebookFilter>('all');
   const [query, setQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -130,7 +115,7 @@ export default function NotebookPage({
     setCurrentPage(1);
   }, [activeFilter, normalizedQuery]);
 
-  const timelineItems: NotebookTimelineItem[] = (() => {
+  const timelineItems: NotebookTimelineItem[] = useMemo(() => {
     const wordItems = savedWords.map((word, index) => ({
       id: `word-${word.word}-${index}`,
       type: 'word' as const,
@@ -153,65 +138,71 @@ export default function NotebookPage({
     }));
 
     return [...wordItems, ...passageItems, ...noteItems].sort((a, b) => b.savedAt - a.savedAt);
-  })();
+  }, [savedWords, savedPassages, savedNotes]);
 
-  const filteredTimeline = timelineItems.filter((item) => {
-    if (activeFilter === 'words' && item.type !== 'word') return false;
-    if (activeFilter === 'passages' && item.type !== 'passage') return false;
-    if (activeFilter === 'notes' && item.type !== 'note') return false;
-    if (!normalizedQuery) return true;
+  const filteredTimeline = useMemo(() => {
+    return timelineItems.filter((item) => {
+      if (activeFilter === 'words' && item.type !== 'word') return false;
+      if (activeFilter === 'passages' && item.type !== 'passage') return false;
+      if (activeFilter === 'notes' && item.type !== 'note') return false;
+      if (!normalizedQuery) return true;
 
-    if (item.type === 'word') {
-      return getWordSearchText(item.word).includes(normalizedQuery);
-    }
+      if (item.type === 'word') {
+        return getWordSearchText(item.word).includes(normalizedQuery);
+      }
 
-    if (item.type === 'note') {
-      return getNoteSearchText(item.note).includes(normalizedQuery);
-    }
+      if (item.type === 'note') {
+        return getNoteSearchText(item.note).includes(normalizedQuery);
+      }
 
-    return getPassageSearchText(item.passage).includes(normalizedQuery);
-  });
+      return getPassageSearchText(item.passage).includes(normalizedQuery);
+    });
+  }, [timelineItems, activeFilter, normalizedQuery]);
 
   const totalPages = Math.ceil(filteredTimeline.length / ITEMS_PER_PAGE);
-  const paginatedTimeline = filteredTimeline.slice(
-    (currentPage - 1) * ITEMS_PER_PAGE,
-    currentPage * ITEMS_PER_PAGE
-  );
 
-  const groups = new Map<string, { label: string; items: NotebookTimelineItem[]; sortTs: number }>();
+  const paginatedTimeline = useMemo(() => {
+    return filteredTimeline.slice(
+      (currentPage - 1) * ITEMS_PER_PAGE,
+      currentPage * ITEMS_PER_PAGE
+    );
+  }, [filteredTimeline, currentPage]);
 
-  for (const item of paginatedTimeline) {
-    const stamp = item.savedAt > 0 ? item.savedAt : 1;
-    const key = item.savedAt > 0 ? dayKey(item.savedAt) : 'older';
-    const label = item.savedAt > 0 ? formatDayLabel(item.savedAt) : 'Saved before date tracking';
-    const existing = groups.get(key);
+  const groupedTimeline = useMemo(() => {
+    const groups = new Map<string, { label: string; items: NotebookTimelineItem[]; sortTs: number }>();
 
-    if (existing) {
-      existing.items.push(item);
-      existing.sortTs = Math.max(existing.sortTs, stamp);
-      continue;
+    for (const item of paginatedTimeline) {
+      const stamp = item.savedAt > 0 ? item.savedAt : 1;
+      const key = item.savedAt > 0 ? dayKey(item.savedAt) : 'older';
+      const label = item.savedAt > 0 ? formatDayLabel(item.savedAt) : 'Saved before date tracking';
+      const existing = groups.get(key);
+
+      if (existing) {
+        existing.items.push(item);
+        existing.sortTs = Math.max(existing.sortTs, stamp);
+        continue;
+      }
+
+      groups.set(key, { label, items: [item], sortTs: stamp });
     }
 
-    groups.set(key, { label, items: [item], sortTs: stamp });
-  }
-
-  const groupedTimeline = Array.from(groups.entries())
-    .sort((a, b) => b[1].sortTs - a[1].sortTs)
-    .map(([key, value]) => ({ key, ...value }));
+    return Array.from(groups.entries())
+      .sort((a, b) => b[1].sortTs - a[1].sortTs)
+      .map(([key, value]) => ({ key, ...value }));
+  }, [paginatedTimeline]);
 
   const notesCount = noteContent.trim().length;
   const savedNotesCount = savedNotes.length;
-  const visibleWords = filteredTimeline.filter((item) => item.type === 'word').length;
-  const visiblePassages = filteredTimeline.filter((item) => item.type === 'passage').length;
-  const visibleNotes = filteredTimeline.filter((item) => item.type === 'note').length;
+
+  const visibleWords = useMemo(() => filteredTimeline.filter((item) => item.type === 'word').length, [filteredTimeline]);
+  const visiblePassages = useMemo(() => filteredTimeline.filter((item) => item.type === 'passage').length, [filteredTimeline]);
+  const visibleNotes = useMemo(() => filteredTimeline.filter((item) => item.type === 'note').length, [filteredTimeline]);
 
   const btnSecondary =
     'inline-flex min-w-0 items-center justify-center gap-2 rounded-2xl glass px-4 py-3 text-sm font-semibold text-violet-700 transition-all duration-300 hover:border-violet-300 hover:bg-white/90 hover:shadow-sm active:scale-[0.98]';
 
-
    const panelClass =
     'rounded-[1.5rem] border border-white/50 glass shadow-[0_32px_64px_-16px_rgba(0,0,0,0.1)] backdrop-blur-3xl transition-all hover:bg-white/50';
-
 
   return (
     <motion.div
@@ -443,7 +434,6 @@ export default function NotebookPage({
               
               <div className="flex items-center gap-1.5 px-2">
                 {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
-                  // Basic pagination logic: show current, first, last, and neighbors
                   const isGap = page !== 1 && page !== totalPages && Math.abs(page - currentPage) > 1;
                   if (isGap) {
                     if (page === 2 || page === totalPages - 1) {
