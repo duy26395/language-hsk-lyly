@@ -6,14 +6,31 @@ import { db, initDb } from '../services/db';
 
 const router = Router();
 
-// Initialize DB once on module load and let route handlers await the result.
-// PERF: `initDb` runs 6 DDL statements sequentially.  On Netlify Serverless
-// every cold start re-executed them, adding 300-800ms before the first API
-// response.  The promise is shared so parallel requests don't race.
-const dbReady = initDb().catch((err) => {
-  console.error('DB Init Error:', err);
-  throw err;
-});
+// PERF FIX: Previously `initDb()` was eagerly called at module top-level,
+// executing 4 heavy DDL statements (ALTER TABLE, constraints) on EVERY Netlify
+// cold start. This blocked the first request by 2-4 seconds.
+//
+// Now we use lazy probing: probe if the table exists with a fast `SELECT 1`.
+// Only if that fails do we execute `initDb()`.
+let dbInitialized = false;
+let initDbPromise: Promise<void> | null = null;
+
+async function ensureDb() {
+  if (dbInitialized) return;
+  if (!initDbPromise) {
+    initDbPromise = (async () => {
+      try {
+        await db.execute('SELECT 1 FROM notebook LIMIT 1');
+        dbInitialized = true;
+      } catch (err: any) {
+        console.warn('Notebook table probe failed, executing initDb...', err?.message);
+        await initDb();
+        dbInitialized = true;
+      }
+    })();
+  }
+  return initDbPromise;
+}
 
 // ─── Vocabulary path helpers ──────────────────────────────────────────────────
 
@@ -57,8 +74,6 @@ const createMinimalWord = (word: string, savedAt: number) => ({
 });
 
 // ─── word_json column ─────────────────────────────────────────────────────────
-// The `word_json` column stores the full SavedWordEntry as JSON, preserving
-// pinyin, meaning, etc. across DB round-trips.
 
 const normalizeNotebookRows = (rows: any[]) => {
   const words = rows
@@ -94,19 +109,12 @@ const normalizeNotebookRows = (rows: any[]) => {
 };
 
 // ─── saveNotebookRows ─────────────────────────────────────────────────────────
-// PERF FIX: The previous implementation issued one INSERT per row inside a
-// for-await loop inside a transaction.  With 30 words + 10 passages that meant
-// ~40 sequential round-trips to Neon Postgres (~80–120ms each = 4-5s total).
-//
-// New approach: build a single batch INSERT per entity type using
-// parameterised placeholders ($1,$2,…) – one network round-trip per type,
-// regardless of item count.
 const saveNotebookRows = async (
   words: any[],
   passages: any[],
   notes: any[],
 ) => {
-  await dbReady;
+  await ensureDb();
   await db.transaction(async (execute) => {
     // Clear existing rows
     await execute('DELETE FROM notebook');
@@ -195,7 +203,7 @@ const normalizeSavedNotes = (data: any) => {
 
 const loadLatestVocabularyData = async () => {
   try {
-    await dbReady;
+    await ensureDb();
     const notebookResult = await db.execute(
       'SELECT id, type, data, saved_at, word_json FROM notebook ORDER BY saved_at DESC, id DESC'
     );

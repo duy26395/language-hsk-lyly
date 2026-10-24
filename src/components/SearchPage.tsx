@@ -211,7 +211,7 @@ export default function SearchPage({
       exit="exit"
       className="mx-auto flex min-h-full w-full max-w-6xl flex-col gap-5 p-4 sm:p-5 md:gap-6 md:p-10"
     >
-      <div className="rounded-[2rem] bg-white/95 p-6 md:p-8 shadow-xl min-h-full flex flex-col gap-5 md:gap-6 backdrop-blur-3xl border border-white">
+      <div className="rounded-[2rem] bg-white/95 p-6 md:p-8 shadow-xl min-h-full flex flex-col gap-5 md:gap-6 border border-white">
         <div className="flex flex-col gap-3 print:hidden sm:flex-row sm:items-end sm:justify-between">
 
         <div className="min-w-0">
@@ -223,7 +223,7 @@ export default function SearchPage({
           </p>
         </div>
         <span className="w-fit rounded-full border border-white/20 glass px-3 py-1 text-xs font-bold text-slate-500 shadow-sm">
-          {selectedModel}
+          {selectedModel === 'gemini-3.8-flash' ? 'Gemini 3.8 Flash' : selectedModel === 'gemini-3.8-flash-lite-tts' ? 'Gemini 3.8 Flash Lite TTS' : selectedModel === 'gemini-3.8-flash-tts' ? 'Gemini 3.8 Flash TTS' : selectedModel === 'gemini' ? 'Gemini 3.8 Flash' : selectedModel}
         </span>
 
       </div>

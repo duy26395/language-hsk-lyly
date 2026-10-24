@@ -11,9 +11,14 @@ export const GROQ_PRIORITY_LIST: AIModel[] = [
 ];
 
 export const GEMINI_MODEL_FALLBACKS = [
-  'gemini-3.0-flash',
-  'gemini-3.1-flash-lite',
-  'gemini-3-flash-live',
+  'gemini-3.8-flash',
+  'gemini-3.8-flash-lite-tts',
+  'gemini-3.8-flash-tts',
+  'gemini-3.8-flash-lite',
+  'gemini-3.8-pro',
+  'gemini-2.5-flash',
+  'gemini-2.0-flash',
+  'gemini-1.5-flash',
 ] as const;
 
 let openai: OpenAI | null = null;
@@ -68,7 +73,7 @@ export function getGithub() {
 }
 
 export function hasProviderForModel(model: AIModel) {
-  if (model === 'gemini') return Boolean(process.env.GEMINI_API_KEY);
+  if (model === 'gemini' || model.startsWith('gemini')) return Boolean(process.env.GEMINI_API_KEY);
   if (model.startsWith('github-')) return Boolean(process.env.GITHUB_API_KEY);
   if (GROQ_PRIORITY_LIST.includes(model) || model === 'llama-3.1-8b-instant') {
     return Boolean(process.env.GROQ_API_KEY);
@@ -84,11 +89,9 @@ export function getExplainRaceModels(preferredModel: AIModel) {
   };
 
   add(preferredModel);
-  add('qwen/qwen3-32b');
-  add('llama-3.1-8b-instant');
-  add('gemini');
-  add('github-gpt-5-mini');
-  add('gpt-3.5-turbo');
+  add('gemini-3.8-flash');
+  add('gemini-3.8-flash-lite-tts');
+  add('gemini-3.8-flash-tts');
 
   return candidates.slice(0, 3);
 }
@@ -105,11 +108,16 @@ export function cleanJsonContent(content: string): string {
 export async function generateGeminiContentWithFallback(
   contents: any,
   config?: Record<string, any>,
+  targetModel?: string,
 ): Promise<any> {
   const client = getGemini();
+  const modelsToTry = targetModel
+    ? [targetModel, ...GEMINI_MODEL_FALLBACKS.filter((m) => m !== targetModel)]
+    : GEMINI_MODEL_FALLBACKS;
+
   let lastError: any = null;
 
-  for (const geminiModel of GEMINI_MODEL_FALLBACKS) {
+  for (const geminiModel of modelsToTry) {
     try {
       return await client.models.generateContent({
         model: geminiModel,

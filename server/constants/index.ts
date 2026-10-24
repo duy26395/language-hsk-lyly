@@ -4,21 +4,16 @@ import type { AIModel } from '../services/ai';
 // NOTE: Keep in sync with src/constants/index.ts (client side).
 
 export const ALLOWED_MODELS: AIModel[] = [
+  'gemini-3.8-flash',
+  'gemini-3.8-flash-lite-tts',
+  'gemini-3.8-flash-tts',
   'gemini',
-  'gpt-3.5-turbo',
-  'llama-3.1-8b-instant',
-  'llama-3.3-70b-versatile',
-  'qwen/qwen3-32b',
-  'meta-llama/llama-4-scout-17b-16e-instruct',
-  'openai/gpt-oss-120b',
-  'github-gpt-5-mini',
-  'github-gpt-4o-mini',
 ];
 
-export const DEFAULT_MODEL: AIModel = 'qwen/qwen3-32b';
+export const DEFAULT_MODEL: AIModel = 'gemini-3.8-flash';
 
 // ─── Cache ────────────────────────────────────────────────────────────────────
 
 /** Bump this string to invalidate all server-side explain caches on deploy.
  *  Keep in sync with src/constants/index.ts (client side). */
-export const CACHE_VERSION = 'pronunciations-v2';
+export const CACHE_VERSION = 'gemini-3.8-v2';

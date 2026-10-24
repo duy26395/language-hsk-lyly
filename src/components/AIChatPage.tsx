@@ -414,7 +414,7 @@ export default function AIChatPage({ selectedModel, fadeVariants }: AIChatPagePr
       exit="exit"
       className="mx-auto flex h-full min-h-0 w-full max-w-5xl flex-col overflow-hidden p-3 pb-2 sm:p-4 md:p-6 md:pb-6"
     >
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-white bg-white/95 shadow-xl backdrop-blur-3xl relative">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-white bg-white/95 shadow-xl relative">
 
         {/* Subtle decorative sparkles in corners */}
         <div className="absolute top-0 right-0 p-12 opacity-[0.03] pointer-events-none">
@@ -433,7 +433,7 @@ export default function AIChatPage({ selectedModel, fadeVariants }: AIChatPagePr
                 AI Chat
               </h1>
               <p className="truncate text-xs font-semibold text-slate-400 md:text-sm">
-                Model: {selectedModel}
+                Model: {selectedModel === 'gemini-3.8-flash' ? 'Gemini 3.8 Flash' : selectedModel === 'gemini-3.8-flash-lite-tts' ? 'Gemini 3.8 Flash Lite TTS' : selectedModel === 'gemini-3.8-flash-tts' ? 'Gemini 3.8 Flash TTS' : selectedModel === 'gemini' ? 'Gemini 3.8 Flash' : selectedModel}
               </p>
             </div>
           </div>

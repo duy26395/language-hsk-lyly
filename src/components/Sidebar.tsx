@@ -30,7 +30,7 @@ export default function Sidebar({ activeTab, setActiveTab, showSettings, setShow
   return (
     <>
       {/* Mobile Top Bar */}
-      <div className="z-[60] flex shrink-0 items-center justify-between gap-2 border-b border-white/20 glass bg-white/5 px-3 py-3 shadow-sm backdrop-blur-2xl md:hidden">
+      <div className="z-[60] flex shrink-0 items-center justify-between gap-2 border-b border-white/40 bg-white/90 px-3 py-3 shadow-sm md:hidden">
 
          <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="shrink-0 p-2 text-violet-600 hover:bg-violet-50 rounded-xl transition-colors active:scale-95">
            {isMenuOpen ? <CloseIcon className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
@@ -112,7 +112,7 @@ export default function Sidebar({ activeTab, setActiveTab, showSettings, setShow
       </AnimatePresence>
 
       {/* Sidebar (Desktop) */}
-      <nav className="hidden md:flex md:w-[100px] shrink-0 flex-col print:hidden justify-start z-50 glass bg-white/5 border-r border-white/20 p-4 py-8 gap-4 transition-all duration-300">
+      <nav className="hidden md:flex md:w-[100px] shrink-0 flex-col print:hidden justify-start z-50 bg-white/80 border-r border-white/40 p-4 py-8 gap-4 transition-all duration-300 shadow-sm">
 
         <div className="hidden md:flex flex-col items-center mb-6">
           <div className="w-14 h-14 rounded-2xl overflow-hidden border-2 border-white shadow-xl rotate-3 hover:rotate-0 transition-transform duration-500 cursor-pointer group">

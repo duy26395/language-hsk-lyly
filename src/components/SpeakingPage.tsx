@@ -387,7 +387,7 @@ export default function SpeakingPage({ selectedModel, fadeVariants }: SpeakingPa
         </div>
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[1.25rem] border border-white bg-white/95 shadow-xl backdrop-blur-3xl md:rounded-[2rem] relative">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[1.25rem] border border-white bg-white/95 shadow-xl md:rounded-[2rem] relative">
 
 
 

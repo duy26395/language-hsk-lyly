@@ -21,7 +21,7 @@ export async function callAI(
   options: CallAIOptions = {},
 ): Promise<{ content: string | null; resolvedModel: AIModel }> {
   // ─── Gemini Provider ───
-  if (model === 'gemini') {
+  if (model === 'gemini' || model.startsWith('gemini')) {
     const contents = [
       { role: 'user', parts: [{ text: systemPrompt }] },
       { role: 'user', parts: [{ text: userPrompt }] },
@@ -30,10 +30,11 @@ export async function callAI(
       ? { responseMimeType: 'application/json' }
       : undefined;
 
-    const result = await generateGeminiContentWithFallback(contents, config);
+    const targetModel = model === 'gemini' ? 'gemini-3.8-flash' : model;
+    const result = await generateGeminiContentWithFallback(contents, config, targetModel);
     return {
       content: result.text || null,
-      resolvedModel: 'gemini',
+      resolvedModel: model,
     };
   }
 
@@ -102,7 +103,7 @@ export async function callAIChat(
   summaryPrompt?: string,
 ): Promise<{ content: string | null; resolvedModel: AIModel }> {
   // ─── Gemini Provider ───
-  if (model === 'gemini') {
+  if (model === 'gemini' || model.startsWith('gemini')) {
     const contents: any[] = [
       { role: 'user', parts: [{ text: systemPrompt }] },
     ];
@@ -117,10 +118,11 @@ export async function callAIChat(
       { role: 'user', parts: [{ text: userMessage }] },
     );
 
-    const result = await generateGeminiContentWithFallback(contents);
+    const targetModel = model === 'gemini' ? 'gemini-3.8-flash' : model;
+    const result = await generateGeminiContentWithFallback(contents, undefined, targetModel);
     return {
       content: result.text || null,
-      resolvedModel: 'gemini',
+      resolvedModel: model,
     };
   }
 

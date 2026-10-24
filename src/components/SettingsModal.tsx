@@ -17,29 +17,24 @@ const modelGroups: {
   models: { id: AIModel; name: string; description: string }[];
 }[] = [
   {
-    provider: 'Gemini',
-    description: 'Google AI',
+    provider: 'Google Gemini',
+    description: 'Gemini 3.8 Generation',
     models: [
-      { id: 'gemini', name: 'Gemini Flash', description: 'Fast, suitable for daily learning' },
-    ],
-  },
-  {
-    provider: 'Groq',
-    description: 'Llama, Qwen & GPT-OSS',
-    models: [
-      { id: 'qwen/qwen3-32b', name: 'Qwen 3 32B', description: 'Fast and smart open weights (Priority 1)' },
-      { id: 'llama-3.3-70b-versatile', name: 'Llama 3.3 70B', description: 'Large model, versatile (Priority 2)' },
-      { id: 'meta-llama/llama-4-scout-17b-16e-instruct', name: 'Llama 4 Scout 17B', description: 'Next-gen reasoning (Priority 3)' },
-      { id: 'openai/gpt-oss-120b', name: 'GPT-OSS 120B', description: 'Massive open weights model (Priority 4)' },
-      { id: 'llama-3.1-8b-instant', name: 'Llama 3.1 8B', description: 'Ultra-fast inference (Priority 5)' },
-    ],
-  },
-  {
-    provider: 'GitHub Copilot',
-    description: 'Azure Inference',
-    models: [
-      { id: 'github-gpt-5-mini', name: 'Copilot GPT-5 Mini', description: 'Next-gen reasoning', },
-      { id: 'github-gpt-4o-mini', name: 'Copilot GPT-4o Mini', description: 'Fast and cost-effective' },
+      {
+        id: 'gemini-3.8-flash',
+        name: 'Gemini 3.8 Flash',
+        description: 'Mô hình nhanh, thông minh cho từ điển và bài đọc',
+      },
+      {
+        id: 'gemini-3.8-flash-lite-tts',
+        name: 'Gemini 3.8 Flash Lite TTS',
+        description: 'Bản siêu nhẹ, tối ưu phản hồi nhanh kèm âm thanh phát âm',
+      },
+      {
+        id: 'gemini-3.8-flash-tts',
+        name: 'Gemini 3.8 Flash TTS',
+        description: 'Bản Flash cao cấp, tối ưu cho hội thoại và giọng đọc chuẩn',
+      },
     ],
   },
 ];
@@ -61,10 +56,10 @@ export default function SettingsModal({ showSettings, setShowSettings, selectedM
             transition={springTransition}
             className="max-h-[92dvh] w-full max-w-sm overflow-y-auto rounded-[1.5rem] bg-white p-4 shadow-2xl ring-1 ring-slate-900/5 sm:rounded-[2rem] sm:p-6 md:p-8" onClick={e => e.stopPropagation()}
           >
-            <h3 className="text-xl font-bold mb-6 text-slate-800">AI Settings</h3>
+            <h3 className="text-xl font-bold mb-6 text-slate-800">Cài đặt AI Model</h3>
             <div className="space-y-5">
               <div>
-                <label className="block text-sm font-semibold text-slate-500 mb-3">Select AI Model</label>
+                <label className="block text-sm font-semibold text-slate-500 mb-3">Chọn chế độ AI</label>
                 <div className="space-y-4">
                   {modelGroups.map((group) => (
                     <div key={group.provider} className="rounded-2xl border border-violet-100 bg-violet-50/30 p-3">
@@ -74,7 +69,7 @@ export default function SettingsModal({ showSettings, setShowSettings, selectedM
                       </div>
                       <div className="space-y-2">
                         {group.models.map((model) => {
-                          const isSelected = selectedModel === model.id;
+                          const isSelected = selectedModel === model.id || (selectedModel === 'gemini' && model.id === 'gemini-3.8-flash');
 
                           return (
                             <button
@@ -106,11 +101,11 @@ export default function SettingsModal({ showSettings, setShowSettings, selectedM
                   ))}
                 </div>
                 <p className="text-[11px] text-slate-400 mt-3 font-medium">
-                  The selected model will be used for dictionary lookups and text generation.
+                  Mô hình được chọn sẽ áp dụng cho tra từ điển, tạo bài học và trò chuyện AI.
                 </p>
               </div>
               <button onClick={() => setShowSettings(false)} className={`${btnPrimary} w-full mt-2`}>
-                Done
+                Xong
               </button>
             </div>
           </motion.div>

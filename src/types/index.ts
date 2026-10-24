@@ -1,6 +1,9 @@
 // ─── AI Models ────────────────────────────────────────────────────────────────
 
 export type AIModel =
+  | 'gemini-3.8-flash'
+  | 'gemini-3.8-flash-lite-tts'
+  | 'gemini-3.8-flash-tts'
   | 'gemini'
   | 'gpt-3.5-turbo'
   | 'llama-3.1-8b-instant'

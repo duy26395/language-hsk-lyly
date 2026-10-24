@@ -22,10 +22,6 @@ import { DEFAULT_MODEL } from './constants';
 const softEase = [0.22, 1, 0.36, 1] as const;
 
 // Defined at module scope — no re-creation on every render.
-// PERF: Removed filter:blur() from all states. Animating blur on a large DOM
-// sub-tree forces a full repaint on every frame and compounds with the
-// backdrop-filter cost on .glass cards.  opacity + y is enough for a polished
-// transition and stays entirely on the compositor thread.
 const fadeVariants: Variants = {
   hidden: { opacity: 0, y: 16, scale: 0.987 },
   visible: {
@@ -46,7 +42,17 @@ function AppContent() {
   const [activeTab, setActiveTab] = useState<
     'search' | 'read' | 'create' | 'study' | 'quiz' | 'notebook' | 'speaking' | 'chat'
   >('search');
-  const [selectedModel, setSelectedModel] = useState<AIModel>(DEFAULT_MODEL);
+  const [selectedModel, setSelectedModel] = useState<AIModel>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('chinese-selected-model');
+      if (saved) return saved as AIModel;
+    }
+    return DEFAULT_MODEL;
+  });
+
+  useEffect(() => {
+    localStorage.setItem('chinese-selected-model', selectedModel);
+  }, [selectedModel]);
   const [showSettings, setShowSettings] = useState(false);
 
   const [readInput, setReadInput] = useState('');
@@ -67,13 +73,10 @@ function AppContent() {
     if (window.speechSynthesis) window.speechSynthesis.cancel();
   }, [activeTab]);
 
-
   return (
     <SecurityGuard>
       <div className="relative flex h-dvh min-h-dvh w-full min-w-0 flex-col overflow-hidden bg-transparent font-sans text-slate-800 md:flex-row">
         <AppBackground />
-
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-violet-500/10 via-transparent to-fuchsia-500/10 mix-blend-overlay" />
 
         <Sidebar
           activeTab={activeTab}

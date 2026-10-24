@@ -54,9 +54,6 @@
     background: #fbfaff;
   }
 
-  /* PERF: Removed animated background-pulse on .app-background::before.
-     The old animation used filter:blur(80px) + transform on every frame,
-     which forced a full repaint. Kept as static gradients instead. */
   .app-background::before {
     content: "";
     position: absolute;
@@ -69,29 +66,15 @@
     filter: blur(80px);
   }
 
-  /* PERF: Reduced blur 40px→12px and saturate 200%→140%.
-     backdrop-filter on top of animated backgrounds forced the GPU to
-     recompute the blur every frame. At 12px the glass effect is
-     preserved while render cost drops dramatically. */
+  /* PERF: Optimized glassmorphism with high opacity and lightweight blur.
+     Avoids GPU stalls while preserving modern translucent aesthetic. */
   .glass {
-    background: rgba(255, 255, 255, 0.72);
-    backdrop-filter: blur(12px) saturate(140%);
-    -webkit-backdrop-filter: blur(12px) saturate(140%);
-    border: 1px solid rgba(255, 255, 255, 0.75);
-    box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.05);
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.8);
+    box-shadow: 0 4px 20px 0 rgba(31, 38, 135, 0.04);
   }
-
-  /* Lightweight orb pulse — only animates opacity (compositor-only, no repaint).
-     Used by AppBackground.tsx orb divs. */
-  @keyframes orb-pulse {
-    0%, 100% { opacity: 1; }
-    50%       { opacity: 0.65; }
-  }
-
-  .app-orb           { animation: orb-pulse 20s ease-in-out infinite; }
-  .app-orb--delay-4  { animation-delay: -4s; }
-  .app-orb--delay-8  { animation-delay: -8s; }
-  .app-orb--delay-12 { animation-delay: -12s; }
 
   .floral-corner {
     background:

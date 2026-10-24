@@ -202,7 +202,7 @@ export default function NotebookPage({
     'inline-flex min-w-0 items-center justify-center gap-2 rounded-2xl glass px-4 py-3 text-sm font-semibold text-violet-700 transition-all duration-300 hover:border-violet-300 hover:bg-white/90 hover:shadow-sm active:scale-[0.98]';
 
    const panelClass =
-    'rounded-[1.5rem] border border-white/50 glass shadow-[0_32px_64px_-16px_rgba(0,0,0,0.1)] backdrop-blur-3xl transition-all hover:bg-white/50';
+    'rounded-[1.5rem] border border-white/50 glass shadow-[0_20px_40px_-16px_rgba(0,0,0,0.08)] transition-all hover:bg-white/60';
 
   return (
     <motion.div
@@ -213,7 +213,7 @@ export default function NotebookPage({
       exit="exit"
       className="mx-auto flex w-full max-w-7xl flex-col p-4 sm:p-5 md:p-10"
     >
-      <div className="min-w-0 rounded-[2rem] bg-white/95 p-4 shadow-xl flex flex-col gap-6 backdrop-blur-3xl border border-white sm:p-6 md:p-8">
+      <div className="min-w-0 rounded-[2rem] bg-white/95 p-4 shadow-xl flex flex-col gap-6 border border-white sm:p-6 md:p-8">
       <AnimatePresence>
         {notebookToast && (
           <motion.div
@@ -527,7 +527,7 @@ function OverviewCard({
   } as const;
 
   return (
-    <div className="group relative overflow-hidden rounded-[1.5rem] border border-white/50 glass p-4 shadow-xl backdrop-blur-3xl transition-all duration-500 hover:-translate-y-1.5 hover:bg-white/70 hover:shadow-2xl hover:shadow-violet-200/30">
+    <div className="group relative overflow-hidden rounded-[1.5rem] border border-white/50 glass p-4 shadow-xl transition-all duration-500 hover:-translate-y-1.5 hover:bg-white/70 hover:shadow-2xl hover:shadow-violet-200/30">
       <div className={`absolute -right-4 -top-4 h-24 w-24 opacity-[0.03] transition-all duration-500 group-hover:scale-150 group-hover:opacity-[0.08] ${toneMap[tone].split(' ')[1]}`}>
         <Icon className="h-full w-full" />
       </div>

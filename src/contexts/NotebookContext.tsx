@@ -49,11 +49,56 @@ const normalizeSavedWord = (item: SavedWordEntry): SavedWordEntry => ({
   },
 });
 
+function getInitialWords(): SavedWordEntry[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem('chinese-saved-words');
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.map(normalizeSavedWord) : [];
+  } catch {
+    return [];
+  }
+}
+
+function getInitialPassages(): SavedPassageEntry[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem('chinese-saved-passages');
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function getInitialNotes(): SavedNoteEntry[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem('chinese-saved-notes-list');
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function getInitialNoteContent(): string {
+  if (typeof window === 'undefined') return '';
+  return localStorage.getItem('chinese-notes') || '';
+}
+
 export const NotebookProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [noteContent, setNoteContent] = useState('');
-  const [savedNotes, setSavedNotes] = useState<SavedNoteEntry[]>([]);
-  const [savedWords, setSavedWords] = useState<SavedWordEntry[]>([]);
-  const [savedPassages, setSavedPassages] = useState<SavedPassageEntry[]>([]);
+  // PERF: Lazy initialisation directly from localStorage.
+  // The UI is interactive immediately on first render (0ms load time)
+  // instead of waiting for a 2-4 second Netlify cold start to load data.
+  const [noteContent, setNoteContent] = useState<string>(getInitialNoteContent);
+  const [savedNotes, setSavedNotes] = useState<SavedNoteEntry[]>(getInitialNotes);
+  const [savedWords, setSavedWords] = useState<SavedWordEntry[]>(getInitialWords);
+  const [savedPassages, setSavedPassages] = useState<SavedPassageEntry[]>(getInitialPassages);
+
   const [isSyncing, setIsSyncing] = useState(false);
   const [isSavingNote, setIsSavingNote] = useState(false);
   const [notebookToast, setNotebookToast] = useState<{
@@ -96,6 +141,7 @@ export const NotebookProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         }
         if (Array.isArray(data.notes) && response.ok) {
           setSavedNotes(data.notes as SavedNoteEntry[]);
+          localStorage.setItem('chinese-saved-notes-list', JSON.stringify(data.notes));
         }
         setLastSynced(Date.now());
         if (showToast) {
@@ -118,7 +164,7 @@ export const NotebookProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         return false;
       } finally {
         pendingVocabularySaveRef.current.delete(requestKey);
-        setTimeout(() => setIsSyncing(false), 1000);
+        setTimeout(() => setIsSyncing(false), 800);
       }
     })();
 
@@ -126,54 +172,37 @@ export const NotebookProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return await savePromise;
   };
 
+  // Background fetch to sync from server without blocking UI
   useEffect(() => {
+    let cancelled = false;
     const loadData = async () => {
       try {
         const res = await fetch('/api/vocabulary');
+        if (!res.ok) return;
         const data = await res.json();
+        if (cancelled) return;
+
         if (Array.isArray(data.notes) && data.notes.length > 0) {
           setSavedNotes(data.notes as SavedNoteEntry[]);
+          localStorage.setItem('chinese-saved-notes-list', JSON.stringify(data.notes));
         }
-        const savedNotesDraft = localStorage.getItem('chinese-notes');
-        if (savedNotesDraft) {
-          setNoteContent(savedNotesDraft);
-        }
-        if (data.words && data.words.length > 0) {
+        if (Array.isArray(data.words) && data.words.length > 0) {
           setSavedWords(data.words.map(normalizeSavedWord));
-        } else {
-          const savedWordsStr = localStorage.getItem('chinese-saved-words');
-          if (savedWordsStr) {
-            try {
-              const parsed = JSON.parse(savedWordsStr) as SavedWordEntry[];
-              setSavedWords(parsed.map(normalizeSavedWord));
-            } catch {}
-          }
+          localStorage.setItem('chinese-saved-words', JSON.stringify(data.words));
         }
-        if (data.passages && data.passages.length > 0) {
+        if (Array.isArray(data.passages) && data.passages.length > 0) {
           setSavedPassages(data.passages as SavedPassageEntry[]);
-          return;
+          localStorage.setItem('chinese-saved-passages', JSON.stringify(data.passages));
         }
-      } catch {
-        const savedNotesDraft = localStorage.getItem('chinese-notes');
-        if (savedNotesDraft) setNoteContent(savedNotesDraft);
-        const savedWordsStr = localStorage.getItem('chinese-saved-words');
-        if (savedWordsStr) {
-          try {
-            const parsed = JSON.parse(savedWordsStr) as SavedWordEntry[];
-            setSavedWords(parsed.map(normalizeSavedWord));
-          } catch {}
-        }
-      }
-
-      const savedPassagesStr = localStorage.getItem('chinese-saved-passages');
-      if (savedPassagesStr) {
-        try {
-          setSavedPassages(JSON.parse(savedPassagesStr) as SavedPassageEntry[]);
-        } catch {}
+      } catch (e) {
+        // Fallback: localStorage already populated the state, no UI breakage
       }
     };
 
     void loadData();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -185,7 +214,7 @@ export const NotebookProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     const timeoutId = window.setTimeout(() => {
       setNotebookToast(null);
-    }, 3500);
+    }, 3000);
 
     return () => window.clearTimeout(timeoutId);
   }, [notebookToast]);
@@ -209,20 +238,34 @@ export const NotebookProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       ...savedWords,
       { word, explanation, review: createInitialReview(), savedAt: Date.now() },
     ];
+    // Optimistic update: instantly visible to the user
     setSavedWords(nextWords);
-    return await saveToServer(nextWords, savedPassages, savedNotes, {
-      successMessage: 'Word saved to notebook.',
-      errorMessage: 'Could not save word. Please try again.',
+    setNotebookToast({
+      type: 'success',
+      title: 'Word saved',
+      message: `"${word}" added to your notebook.`,
     });
+
+    // Background sync to server
+    void saveToServer(nextWords, savedPassages, savedNotes, {
+      showToast: false,
+    });
+    return true;
   };
 
   const removeWord = async (word: string) => {
     const nextWords = savedWords.filter((w) => w.word !== word);
     setSavedWords(nextWords);
-    return await saveToServer(nextWords, savedPassages, savedNotes, {
-      successMessage: 'Word removed from notebook.',
-      errorMessage: 'Could not remove word. Please try again.',
+    setNotebookToast({
+      type: 'success',
+      title: 'Word removed',
+      message: `"${word}" removed from notebook.`,
     });
+
+    void saveToServer(nextWords, savedPassages, savedNotes, {
+      showToast: false,
+    });
+    return true;
   };
 
   const savePassage = async (text: string, source: 'read' | 'create' = 'read') => {
@@ -241,49 +284,60 @@ export const NotebookProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       ...savedPassages,
     ];
     setSavedPassages(nextPassages);
-    return await saveToServer(savedWords, nextPassages, savedNotes, {
-      successMessage: 'Passage saved to notebook.',
-      errorMessage: 'Could not save passage. Please try again.',
+    setNotebookToast({
+      type: 'success',
+      title: 'Passage saved',
+      message: 'Passage saved to your notebook.',
     });
+
+    void saveToServer(savedWords, nextPassages, savedNotes, {
+      showToast: false,
+    });
+    return true;
   };
 
   const removePassage = async (id: string) => {
     const nextPassages = savedPassages.filter((p) => p.id !== id);
     setSavedPassages(nextPassages);
-    return await saveToServer(savedWords, nextPassages, savedNotes, {
-      successMessage: 'Passage removed from notebook.',
-      errorMessage: 'Could not remove passage. Please try again.',
+    void saveToServer(savedWords, nextPassages, savedNotes, {
+      showToast: false,
     });
+    return true;
   };
 
   const saveNotes = async () => {
     const trimmed = noteContent.trim();
     if (!trimmed) return;
     setIsSavingNote(true);
-    setNotebookToast(null);
     const now = Date.now();
     const nextNotes: SavedNoteEntry[] = [
       { id: now.toString(), content: trimmed, savedAt: now },
       ...savedNotes,
     ];
-    const saved = await saveToServer(savedWords, savedPassages, nextNotes, {
-      successMessage: 'Note saved successfully.',
-      errorMessage: 'Could not save note. Please try again.',
+    setSavedNotes(nextNotes);
+    localStorage.setItem('chinese-saved-notes-list', JSON.stringify(nextNotes));
+    setNoteContent('');
+    localStorage.removeItem('chinese-notes');
+    setNotebookToast({
+      type: 'success',
+      title: 'Note saved',
+      message: 'Note saved successfully.',
     });
-    if (saved) {
-      setNoteContent('');
-      localStorage.removeItem('chinese-notes');
-    }
     setIsSavingNote(false);
+
+    void saveToServer(savedWords, savedPassages, nextNotes, {
+      showToast: false,
+    });
   };
 
   const removeNote = async (id: string) => {
     const nextNotes = savedNotes.filter((item) => item.id !== id);
     setSavedNotes(nextNotes);
-    return await saveToServer(savedWords, savedPassages, nextNotes, {
-      successMessage: 'Note removed from notebook.',
-      errorMessage: 'Could not remove note. Please try again.',
+    localStorage.setItem('chinese-saved-notes-list', JSON.stringify(nextNotes));
+    void saveToServer(savedWords, savedPassages, nextNotes, {
+      showToast: false,
     });
+    return true;
   };
 
   const reviewWord = (word: string, grade: ReviewGrade) => {

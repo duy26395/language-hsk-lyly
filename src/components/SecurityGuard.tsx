@@ -164,28 +164,17 @@ export default function SecurityGuard({ children }: SecurityGuardProps) {
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-transparent font-sans overflow-hidden">
-
-      {/*
-        PERF: Replaced 4 motion.div gradient blobs (with scale/rotate/x/y
-        animations at blur-[100px]) with static CSS divs.  The old approach
-        forced the GPU to re-composite every frame at full-screen scale.
-        Replaced floating icons (6 simultaneous multi-property Framer Motion
-        timelines) with none — the lock screen is shown only briefly.
-        Removed noise.svg mix-blend-overlay (software compositor path).
-      */}
+      {/* Static background for fast rendering */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="app-orb absolute -top-[10%] -left-[10%] h-[60%] w-[60%] rounded-full bg-gradient-to-br from-violet-300/40 to-fuchsia-300/40 blur-[70px]" />
-        <div className="app-orb app-orb--delay-8 absolute -bottom-[10%] -right-[10%] h-[65%] w-[65%] rounded-full bg-gradient-to-tr from-rose-300/35 to-orange-300/35 blur-[70px]" />
-        <div className="app-orb app-orb--delay-4 absolute top-[18%] right-[8%] h-[38%] w-[38%] rounded-full bg-gradient-to-bl from-blue-200/35 to-cyan-200/35 blur-[60px]" />
-        <div className="app-orb app-orb--delay-12 absolute bottom-[18%] left-[12%] h-[36%] w-[36%] rounded-full bg-gradient-to-tr from-emerald-200/30 to-teal-200/30 blur-[60px]" />
-        {/* Dot grid – pure CSS, zero JS */}
+        <div className="absolute -top-[10%] -left-[10%] h-[60%] w-[60%] rounded-full bg-gradient-to-br from-violet-300/40 to-fuchsia-300/40 blur-[60px]" />
+        <div className="absolute -bottom-[10%] -right-[10%] h-[65%] w-[65%] rounded-full bg-gradient-to-tr from-rose-300/35 to-orange-300/35 blur-[60px]" />
+        <div className="absolute top-[18%] right-[8%] h-[38%] w-[38%] rounded-full bg-gradient-to-bl from-blue-200/35 to-cyan-200/35 blur-[50px]" />
+        <div className="absolute bottom-[18%] left-[12%] h-[36%] w-[36%] rounded-full bg-gradient-to-tr from-emerald-200/30 to-teal-200/30 blur-[50px]" />
         <div
           className="absolute inset-0 opacity-[0.025]"
           style={{ backgroundImage: 'radial-gradient(#4f46e5 1px, transparent 1px)', backgroundSize: '32px 32px' }}
         />
       </div>
-
-      <div className="absolute inset-0 bg-white/10 backdrop-blur-[1px]" />
 
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -193,14 +182,12 @@ export default function SecurityGuard({ children }: SecurityGuardProps) {
         className="relative w-full max-w-md px-6"
       >
         <div className="mb-8 text-center">
-          {/* Lock icon: spring-in once, then gentle float via CSS (no Framer repeat) */}
           <motion.div
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
             transition={{ type: 'spring', damping: 12, stiffness: 200, delay: 0.2 }}
             className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-[2.5rem]
-                       bg-gradient-to-br from-violet-600 to-indigo-600 shadow-xl shadow-violet-200
-                       animate-bounce-slow"
+                       bg-gradient-to-br from-violet-600 to-indigo-600 shadow-xl shadow-violet-200"
           >
             <Lock className="h-10 w-10 text-white" />
           </motion.div>
@@ -215,13 +202,10 @@ export default function SecurityGuard({ children }: SecurityGuardProps) {
         <motion.div
           animate={shake ? { x: [-10, 10, -10, 10, 0] } : {}}
           transition={{ duration: 0.4 }}
-          className="group relative overflow-hidden rounded-[2.5rem] border border-white/80 bg-white/60 p-8
-                     shadow-[0_32px_64px_-16px_rgba(0,0,0,0.1)] backdrop-blur-md
-                     transition-all hover:shadow-[0_48px_80px_-20px_rgba(0,0,0,0.15)] hover:bg-white/70"
+          className="group relative overflow-hidden rounded-[2.5rem] border border-white/80 bg-white/90 p-8
+                     shadow-[0_20px_50px_-12px_rgba(0,0,0,0.12)]
+                     transition-all hover:bg-white"
         >
-          {/* Hover border accent */}
-          <div className="absolute inset-0 rounded-[2.5rem] bg-gradient-to-br from-violet-500/20 to-rose-500/20 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
-
           <div className="mb-6 flex items-center gap-3 text-violet-600">
             <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-violet-100">
               <ShieldCheck className="h-4 w-4" />
@@ -281,7 +265,6 @@ export default function SecurityGuard({ children }: SecurityGuardProps) {
         </motion.div>
 
         <div className="mt-8 flex items-center justify-center gap-3 text-slate-400">
-          {/* Heartbeat via CSS animation instead of Framer repeat */}
           <Heart className="h-4 w-4 text-rose-400 fill-rose-400 animate-pulse" />
           <span className="text-[10px] font-bold uppercase tracking-[0.2em] opacity-60">Designed for Thảo &amp; Duy</span>
         </div>
